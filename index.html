@@ -481,8 +481,11 @@
           <input id="nNick" placeholder="Nickname *" style="width:130px">
           <select id="nR1"></select><select id="nR2"></select><select id="nR3"></select>
           <button class="ghost" id="btnAdd">Aggiungi</button>
+          <div class="grow"></div>
+          <button class="ghost" id="btnCsv">📄 Importa CSV del modulo</button>
+          <input type="file" id="fileCsv" accept=".csv,text/csv" style="display:none">
         </div>
-        <div class="muted" style="margin-top:6px">Ruoli: 1ª, 2ª, 3ª scelta. Un POR di ruolo sta in porta tutta la
+        <div class="muted" style="margin-top:6px">"Importa CSV" legge l'export del Google Form (Nome, Cognome, Nickname, 3 ruoli) e aggiunge solo i nickname non ancora presenti. Ruoli: 1ª, 2ª, 3ª scelta. Un POR di ruolo sta in porta tutta la
           partita; senza POR la porta si fa a turni di 5 minuti e tutti gli 8 sono valutati come giocatori di movimento.
         </div>
       </div>
@@ -585,36 +588,6 @@
     const PITCH_ROWS = [['ATT'], ['ED', 'CC', 'ES'], ['DD', 'DC', 'DS'], ['POR']];
     const STORAGE_KEY = 'calcio8_v1';
 
-    const SEED = [
-      ['Filippo', 'Ghisio', 'Filo', 'DC', 'DD', 'DS'],
-      ['Francesco', 'Zarotti', 'CescoParmaCalcio', 'CC', 'ATT', 'ES'],
-      ['Gabriele', 'Micheli', 'Gabbaz', 'DD', 'DS', 'ED'],
-      ['Luca', 'Alicata', 'Luca A.', 'DC', 'DS', 'ES'],
-      ['Tommaso', 'Giordano', 'tommasogiordano', 'CC', 'ES', 'ED'],
-      ['Francesco', 'Romani', 'Roma', 'CC', 'ES', 'ATT'],
-      ['Fede', 'Marto', 'FEDE', 'ED', 'ES', 'CC'],
-      ['Luca', 'Catarinella', 'Lucone', 'DD', 'DS', 'DC'],
-      ['Leonardo', '', 'Il Demone', 'DD', 'DS', 'DC'],
-      ['Riccardo', 'Matarazzo', 'Ric', 'DC', 'DS', 'DD'],
-      ['Matteo', 'Collotti', 'Teo', 'ED', 'ES', 'DD'],
-      ['Jacopo', 'Righetto', 'Righe', 'CC', 'ES', 'ED'],
-      ['Stefano', 'Vannoni', 'John', 'DS', 'DC', 'CC'],
-      ['Luca', 'Rizzi', 'Riz', 'ES', 'ATT', 'DS'],
-      ['Davide', 'Righetto', 'Rigo', 'DC', 'DS', 'CC'],
-      ['Francesco', 'Iacomi', 'Iac', 'DS', 'CC', 'ES'],
-      ['Giulio', 'Tamburini', 'Giulione', 'ES', 'ATT', 'DS'],
-      ['Giulio', 'Giaquinto', 'gg', 'CC', 'ATT', 'ES'],
-      ['Davide', 'Giovannucci', 'Dg', 'ES', 'DS', 'ATT'],
-      ['Andrea', 'Pazienza', 'Paz', 'CC', 'ES', 'ED'],
-      ['Youssef', 'El ba', 'Youss', 'ED', 'ES', 'ATT'],
-      ['Leonardo', 'Mattiuzzi', 'Leomat', 'CC', 'CC', 'ATT'],
-      ['Tommaso', 'Paoletti', 'Tommi', 'ED', 'ES', 'ATT'],
-      ['Gianmarco', 'Paoletti', 'Gianma', 'DC', 'DD', 'DS'],
-      ['Francesco', 'Di Paolo', 'fradipaolo', 'DD', 'DS', 'ES'],
-      ['Domenico', 'Piscitelli', 'Terr1', 'POR', 'POR', 'POR'],
-      ['Joni', 'A', 'Joni', 'ATT', 'ES', 'ED'],
-    ];
-
     /* ===================== CONFIGURAZIONE SALVATAGGIO =====================
        Lascia vuoti i due campi → i dati restano nel browser (localStorage, solo su questo dispositivo).
        Compila URL e chiave "anon" del tuo progetto Supabase (vedi README.md) → i dati sono condivisi
@@ -627,8 +600,7 @@
 
     function defaultState() {
       return {
-        players: SEED.map((r, i) => ({ id: 'p' + i, nome: r[0], cognome: r[1], nick: r[2], roles: [r[3], r[4], r[5]] })),
-        matches: [], selected: [], current: null
+        players: [], matches: [], selected: [], current: null
       };
     }
     let state = defaultState();
@@ -818,6 +790,7 @@
     function renderPlayers() {
       const stats = computeStats();
       const list = $('#playerList'); list.innerHTML = '';
+      if (!state.players.length) list.innerHTML = '<div class="muted">Nessun giocatore. Aggiungine uno qui sotto o importa il CSV del modulo (solo admin).</div>';
       const sorted = state.players.slice().sort((a, b) => a.nick.localeCompare(b.nick, 'it', { sensitivity: 'base' }));
       for (const p of sorted) {
         const sel = state.selected.includes(p.id);
@@ -854,6 +827,43 @@
       state.players.push({ id: 'p' + Date.now(), nome: $('#nNome').value.trim(), cognome: $('#nCognome').value.trim(), nick, roles: [$('#nR1').value, $('#nR2').value, $('#nR3').value] });
       $('#nNome').value = $('#nCognome').value = $('#nNick').value = ''; save(); renderPlayers(); toast('Giocatore aggiunto');
     };
+
+    /* --- Import CSV (export Google Form) --- */
+    function parseCsv(text) {
+      const rows = []; let row = [], cell = '', q = false;
+      for (let i = 0; i < text.length; i++) {
+        const c = text[i];
+        if (q) { if (c === '"') { if (text[i + 1] === '"') { cell += '"'; i++; } else q = false; } else cell += c; }
+        else if (c === '"') q = true;
+        else if (c === ',') { row.push(cell); cell = ''; }
+        else if (c === '\n' || c === '\r') { if (c === '\r' && text[i + 1] === '\n') i++; row.push(cell); rows.push(row); row = []; cell = ''; }
+        else cell += c;
+      }
+      if (cell !== '' || row.length) { row.push(cell); rows.push(row); }
+      return rows.filter(r => r.some(x => x.trim() !== ''));
+    }
+    function importCsv(text) {
+      const rows = parseCsv(text.replace(/^\uFEFF/, ''));
+      if (rows.length < 2) { toast('CSV vuoto'); return; }
+      const h = rows[0].map(x => x.toLowerCase());
+      const col = (...keys) => h.findIndex(x => keys.every(k => x.includes(k)));
+      const iNome = col('nome'), iCog = col('cognome'), iNick = col('nick'), iR1 = col('prima'), iR2 = col('seconda'), iR3 = col('terza');
+      if (iNick < 0 || iR1 < 0) { toast('Intestazioni CSV non riconosciute (servono Nickname e Ruolo Prima Scelta)'); return; }
+      let added = 0, skipped = 0, bad = 0;
+      const norm = r => { r = (r || '').trim().toUpperCase(); return ROLES.includes(r) ? r : null; };
+      for (const r of rows.slice(1)) {
+        const nick = (r[iNick] || '').trim(); if (!nick) { bad++; continue; }
+        if (state.players.some(p => p.nick.toLowerCase() === nick.toLowerCase())) { skipped++; continue; }
+        const r1 = norm(r[iR1]); if (!r1) { bad++; continue; }
+        const roles = [r1, norm(r[iR2]) || r1, norm(r[iR3]) || norm(r[iR2]) || r1];
+        state.players.push({ id: 'p' + Date.now() + '_' + added, nome: iNome >= 0 ? (r[iNome] || '').trim() : '', cognome: iCog >= 0 ? (r[iCog] || '').trim() : '', nick, roles });
+        added++;
+      }
+      save(); renderPlayers();
+      toast(`Importati ${added} giocatori` + (skipped ? `, ${skipped} già presenti` : '') + (bad ? `, ${bad} righe scartate` : ''));
+    }
+    $('#btnCsv').onclick = () => $('#fileCsv').click();
+    $('#fileCsv').onchange = e => { const f = e.target.files[0]; if (!f) return; const r = new FileReader(); r.onload = () => importCsv(r.result); r.readAsText(f, 'utf-8'); e.target.value = ''; };
 
     /* --- Squadre --- */
     let picked = null; // {team:'A'|'B', id}
