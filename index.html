@@ -1,0 +1,961 @@
+<!DOCTYPE html>
+<html lang="it">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Squadre Calcio a 8</title>
+  <style>
+    :root {
+      --bg: #f4f6f8;
+      --card: #ffffff;
+      --text: #1c2430;
+      --muted: #6b7684;
+      --border: #dde3ea;
+      --accent: #1f6feb;
+      --a: #2563eb;
+      --b: #dc2626;
+      --pitch: #3f9a4c;
+      --pitch2: #47a655;
+      --warn: #d97706;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0f141a;
+        --card: #182029;
+        --text: #e6ebf1;
+        --muted: #95a1af;
+        --border: #2a3440;
+        --accent: #4c8dff;
+        --a: #3b82f6;
+        --b: #ef4444;
+        --pitch: #2f7a3b;
+        --pitch2: #357f42;
+      }
+    }
+
+    * {
+      box-sizing: border-box
+    }
+
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 15px
+    }
+
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap
+    }
+
+    header h1 {
+      font-size: 18px;
+      margin: 0;
+      flex: 1
+    }
+
+    nav {
+      display: flex;
+      gap: 6px
+    }
+
+    nav button {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 6px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px
+    }
+
+    nav button.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff
+    }
+
+    main {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 16px
+    }
+
+    section {
+      display: none
+    }
+
+    section.active {
+      display: block
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
+      margin-bottom: 14px
+    }
+
+    .row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap
+    }
+
+    .grow {
+      flex: 1
+    }
+
+    button.primary {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      padding: 10px 16px;
+      border-radius: 8px;
+      font-size: 15px;
+      cursor: pointer
+    }
+
+    button.primary:disabled {
+      opacity: .45;
+      cursor: not-allowed
+    }
+
+    button.ghost {
+      background: transparent;
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 8px 12px;
+      border-radius: 8px;
+      cursor: pointer
+    }
+
+    button.danger {
+      background: transparent;
+      color: var(--b);
+      border: 1px solid var(--b);
+      padding: 6px 10px;
+      border-radius: 8px;
+      cursor: pointer
+    }
+
+    input,
+    select {
+      background: var(--bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px;
+      font-size: 14px
+    }
+
+    .muted {
+      color: var(--muted);
+      font-size: 13px
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse
+    }
+
+    th,
+    td {
+      padding: 8px 6px;
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+      font-size: 14px
+    }
+
+    th {
+      color: var(--muted);
+      font-weight: 600;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: .04em
+    }
+
+    td.num,
+    th.num {
+      text-align: right
+    }
+
+    .plist {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+      gap: 8px
+    }
+
+    .pl {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 10px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      cursor: pointer;
+      background: var(--bg)
+    }
+
+    .pl.sel {
+      border-color: var(--accent);
+      background: color-mix(in srgb, var(--accent) 12%, var(--bg))
+    }
+
+    .pl input {
+      margin: 0
+    }
+
+    .pl .nick {
+      font-weight: 600
+    }
+
+    .pl .roles {
+      font-size: 12px;
+      color: var(--muted)
+    }
+
+    .pl .pts {
+      margin-left: auto;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums
+    }
+
+    .pl .del {
+      border: none;
+      background: none;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 16px;
+      padding: 0 4px
+    }
+
+    .teams {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px
+    }
+
+    @media (max-width:760px) {
+      .teams {
+        grid-template-columns: 1fr
+      }
+    }
+
+    .team {
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      background: var(--card)
+    }
+
+    .team h2 {
+      margin: 0;
+      padding: 10px 14px;
+      font-size: 16px;
+      color: #fff;
+      display: flex;
+      justify-content: space-between
+    }
+
+    .team.A h2 {
+      background: var(--a)
+    }
+
+    .team.B h2 {
+      background: var(--b)
+    }
+
+    .pitch {
+      background: repeating-linear-gradient(180deg, var(--pitch) 0 25%, var(--pitch2) 25% 50%);
+      padding: 14px 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px
+    }
+
+    .line {
+      display: flex;
+      justify-content: space-evenly;
+      gap: 6px
+    }
+
+    .slot {
+      background: rgba(255, 255, 255, .93);
+      color: #111;
+      border-radius: 10px;
+      padding: 6px 8px;
+      min-width: 88px;
+      text-align: center;
+      cursor: pointer;
+      border: 2px solid transparent;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, .3)
+    }
+
+    .slot.picked {
+      border-color: #facc15;
+      box-shadow: 0 0 0 3px rgba(250, 204, 21, .5)
+    }
+
+    .slot .r {
+      font-size: 11px;
+      font-weight: 700;
+      color: #555;
+      letter-spacing: .05em
+    }
+
+    .slot .n {
+      font-weight: 700;
+      font-size: 14px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 120px
+    }
+
+    .slot .p {
+      font-size: 11px;
+      color: #666
+    }
+
+    .slot .p.c2 {
+      color: var(--warn)
+    }
+
+    .slot .p.c3 {
+      color: var(--b)
+    }
+
+    .rot {
+      padding: 10px 12px;
+      font-size: 13px;
+      line-height: 1.9
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 12px;
+      background: var(--bg);
+      border: 1px solid var(--border)
+    }
+
+    .stat {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap
+    }
+
+    .stat div b {
+      display: block;
+      font-size: 18px
+    }
+
+    .res input {
+      width: 70px;
+      text-align: center;
+      font-size: 20px;
+      font-weight: 700
+    }
+
+    .match {
+      border-bottom: 1px solid var(--border);
+      padding: 10px 0
+    }
+
+    .match:last-child {
+      border-bottom: none
+    }
+
+    .match .hdr {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap
+    }
+
+    .match .score {
+      font-size: 18px;
+      font-weight: 800
+    }
+
+    .match .lineups {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 6px;
+      font-size: 13px
+    }
+
+    @media (max-width:560px) {
+      .match .lineups {
+        grid-template-columns: 1fr
+      }
+    }
+
+    .cA {
+      color: var(--a);
+      font-weight: 700
+    }
+
+    .cB {
+      color: var(--b);
+      font-weight: 700
+    }
+
+    body.readonly .admin-only {
+      display: none !important
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 18px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--text);
+      color: var(--bg);
+      padding: 10px 16px;
+      border-radius: 10px;
+      opacity: 0;
+      transition: .2s;
+      pointer-events: none;
+      z-index: 10
+    }
+
+    .toast.show {
+      opacity: 1
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <h1>⚽ Squadre Calcio a 8</h1>
+    <div id="syncBox" class="row" style="gap:6px">
+      <span id="syncStatus" class="muted"></span>
+      <button class="ghost" id="btnRefresh" title="Ricarica i dati dal server" style="display:none">↻</button>
+      <button class="ghost" id="btnLogin" style="display:none">🔒 Admin</button>
+    </div>
+    <nav>
+      <button data-tab="giocatori" class="active">Giocatori</button>
+      <button data-tab="squadre">Squadre</button>
+      <button data-tab="storico">Storico</button>
+    </nav>
+  </header>
+
+  <main>
+    <!-- ================= GIOCATORI ================= -->
+    <section id="giocatori" class="active">
+      <div class="card">
+        <div class="row">
+          <div class="grow"><b>Seleziona i 16 presenti</b> <span class="muted">· <span id="selCount">0</span>/16</span>
+          </div>
+          <button class="ghost admin-only" id="btnClearSel">Deseleziona tutti</button>
+          <button class="primary admin-only" id="btnGenerate" disabled>Genera squadre</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="plist" id="playerList"></div>
+      </div>
+      <div class="card admin-only">
+        <b>Aggiungi giocatore</b>
+        <div class="row" style="margin-top:8px">
+          <input id="nNome" placeholder="Nome" style="width:120px">
+          <input id="nCognome" placeholder="Cognome" style="width:130px">
+          <input id="nNick" placeholder="Nickname *" style="width:130px">
+          <select id="nR1"></select><select id="nR2"></select><select id="nR3"></select>
+          <button class="ghost" id="btnAdd">Aggiungi</button>
+        </div>
+        <div class="muted" style="margin-top:6px">Ruoli: 1ª, 2ª, 3ª scelta. Un POR di ruolo sta in porta tutta la
+          partita; senza POR la porta si fa a turni di 5 minuti e tutti gli 8 sono valutati come giocatori di movimento.
+        </div>
+      </div>
+      <div class="card row">
+        <button class="ghost" id="btnExport">Esporta backup</button>
+        <button class="ghost admin-only" id="btnImport">Importa backup</button>
+        <input type="file" id="fileImport" accept="application/json" style="display:none">
+        <div class="grow"></div>
+        <button class="danger admin-only" id="btnReset">Reset totale</button>
+      </div>
+    </section>
+
+    <!-- ================= SQUADRE ================= -->
+    <section id="squadre">
+      <div id="noTeams" class="card muted">Nessuna formazione generata. Vai in <b>Giocatori</b>, seleziona 16 presenti e
+        premi <b>Genera squadre</b>.</div>
+      <div id="teamsWrap" style="display:none">
+        <div class="card row">
+          <div class="stat grow">
+            <div><span class="muted">Forza A</span><b id="strA">0</b></div>
+            <div><span class="muted">Forza B</span><b id="strB">0</b></div>
+            <div><span class="muted">Fuori 1ª scelta</span><b id="offRole">0</b></div>
+          </div>
+          <div class="muted" style="flex-basis:100%">Forza = somma dei rating (media punti/partita, stabilizzata per chi
+            ha poche presenze).</div>
+          <button class="ghost admin-only" id="btnRegen">↻ Rigenera</button>
+        </div>
+        <div class="muted admin-only" style="margin:-6px 0 10px 4px">Per uno scambio manuale: tocca un giocatore di una
+          squadra e poi uno dell'altra. I ruoli vengono riassegnati automaticamente.</div>
+        <div class="teams">
+          <div class="team A">
+            <h2><span>Squadra A</span><span id="hA"></span></h2>
+            <div class="pitch" id="pitchA"></div>
+            <div class="rot" id="rotA"></div>
+          </div>
+          <div class="team B">
+            <h2><span>Squadra B</span><span id="hB"></span></h2>
+            <div class="pitch" id="pitchB"></div>
+            <div class="rot" id="rotB"></div>
+          </div>
+        </div>
+        <div class="card admin-only" style="margin-top:14px">
+          <b>Registra risultato</b>
+          <div class="row" style="margin-top:8px">
+            <label class="muted">Data <input type="date" id="mDate"></label>
+            <label class="muted">Campo <input id="mField" list="fieldList" placeholder="es. Sportivo XYZ"
+                style="width:200px"></label>
+            <datalist id="fieldList"></datalist>
+          </div>
+          <div class="row res" style="margin-top:8px">
+            <span class="cA">A</span><input type="number" id="golA" min="0" value="0">
+            <span>–</span>
+            <input type="number" id="golB" min="0" value="0"><span class="cB">B</span>
+            <div class="grow"></div>
+            <button class="primary" id="btnSave">Salva partita</button>
+          </div>
+          <div class="muted" style="margin-top:6px">Vittoria +3, pareggio +1, sconfitta 0 a ogni giocatore della
+            squadra.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= STORICO ================= -->
+    <section id="storico">
+      <div class="card">
+        <b>Classifica giocatori</b>
+        <div class="muted">Media = punti / partite giocate. Rating = media stabilizzata: (punti + 2×media generale) /
+          (partite + 2), usato per bilanciare le squadre.</div>
+        <div style="overflow:auto;margin-top:8px">
+          <table id="standings">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Giocatore</th>
+                <th class="num">PG</th>
+                <th class="num">V</th>
+                <th class="num">N</th>
+                <th class="num">P</th>
+                <th class="num">Punti</th>
+                <th class="num">Media</th>
+                <th class="num">Rating</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card">
+        <b>Partite</b>
+        <div id="matches" style="margin-top:8px"></div>
+      </div>
+    </section>
+  </main>
+  <div class="toast" id="toast"></div>
+
+  <script>
+    /* ===================== DATI ===================== */
+    const ROLES = ['POR', 'DD', 'DC', 'DS', 'ED', 'CC', 'ES', 'ATT'];      // 8 slot per squadra (3-3-1 + POR)
+    const LINE = { POR: null, DD: 'dif', DC: 'dif', DS: 'dif', ED: 'cen', CC: 'cen', ES: 'cen', ATT: 'att' };
+    const PITCH_ROWS = [['ATT'], ['ED', 'CC', 'ES'], ['DD', 'DC', 'DS'], ['POR']];
+    const STORAGE_KEY = 'calcio8_v1';
+
+    const SEED = [
+      ['Filippo', 'Ghisio', 'Filo', 'DC', 'DD', 'DS'],
+      ['Francesco', 'Zarotti', 'CescoParmaCalcio', 'CC', 'ATT', 'ES'],
+      ['Gabriele', 'Micheli', 'Gabbaz', 'DD', 'DS', 'ED'],
+      ['Luca', 'Alicata', 'Luca A.', 'DC', 'DS', 'ES'],
+      ['Tommaso', 'Giordano', 'tommasogiordano', 'CC', 'ES', 'ED'],
+      ['Francesco', 'Romani', 'Roma', 'CC', 'ES', 'ATT'],
+      ['Fede', 'Marto', 'FEDE', 'ED', 'ES', 'CC'],
+      ['Luca', 'Catarinella', 'Lucone', 'DD', 'DS', 'DC'],
+      ['Leonardo', '', 'Il Demone', 'DD', 'DS', 'DC'],
+      ['Riccardo', 'Matarazzo', 'Ric', 'DC', 'DS', 'DD'],
+      ['Matteo', 'Collotti', 'Teo', 'ED', 'ES', 'DD'],
+      ['Jacopo', 'Righetto', 'Righe', 'CC', 'ES', 'ED'],
+      ['Stefano', 'Vannoni', 'John', 'DS', 'DC', 'CC'],
+      ['Luca', 'Rizzi', 'Riz', 'ES', 'ATT', 'DS'],
+      ['Davide', 'Righetto', 'Rigo', 'DC', 'DS', 'CC'],
+      ['Francesco', 'Iacomi', 'Iac', 'DS', 'CC', 'ES'],
+      ['Giulio', 'Tamburini', 'Giulione', 'ES', 'ATT', 'DS'],
+      ['Giulio', 'Giaquinto', 'gg', 'CC', 'ATT', 'ES'],
+      ['Davide', 'Giovannucci', 'Dg', 'ES', 'DS', 'ATT'],
+      ['Andrea', 'Pazienza', 'Paz', 'CC', 'ES', 'ED'],
+      ['Youssef', 'El ba', 'Youss', 'ED', 'ES', 'ATT'],
+      ['Leonardo', 'Mattiuzzi', 'Leomat', 'CC', 'CC', 'ATT'],
+      ['Tommaso', 'Paoletti', 'Tommi', 'ED', 'ES', 'ATT'],
+      ['Gianmarco', 'Paoletti', 'Gianma', 'DC', 'DD', 'DS'],
+      ['Francesco', 'Di Paolo', 'fradipaolo', 'DD', 'DS', 'ES'],
+      ['Domenico', 'Piscitelli', 'Terr1', 'POR', 'POR', 'POR'],
+      ['Joni', 'A', 'Joni', 'ATT', 'ES', 'ED'],
+    ];
+
+    /* ===================== CONFIGURAZIONE SALVATAGGIO =====================
+       Lascia vuoti i due campi → i dati restano nel browser (localStorage, solo su questo dispositivo).
+       Compila URL e chiave "anon" del tuo progetto Supabase (vedi README.md) → i dati sono condivisi
+       online; la lettura è libera, la scrittura richiede la password admin verificata dal server.   */
+    const CONFIG = {
+      SUPABASE_URL: 'https://bqkuickdyrovzjbllpyv.supabase.co',        // es. 'https://abcdefghij.supabase.co'
+      SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJxa3VpY2tkeXJvdnpqYmxscHl2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAwMDE0MDMsImV4cCI6MjEwNTU3NzQwM30.N-rAuuJzijgq4KQtuCAIaQSyZu1oqoKeLi8D_l1kirE',   // chiave "anon public" del progetto
+    };
+    const REMOTE = !!(CONFIG.SUPABASE_URL && CONFIG.SUPABASE_ANON_KEY);
+
+    function defaultState() {
+      return {
+        players: SEED.map((r, i) => ({ id: 'p' + i, nome: r[0], cognome: r[1], nick: r[2], roles: [r[3], r[4], r[5]] })),
+        matches: [], selected: [], current: null
+      };
+    }
+    let state = defaultState();
+    let remoteVersion = 0, adminPwd = sessionStorage.getItem('calcio8_admin') || '';
+    const byId = id => state.players.find(p => p.id === id);
+    const isAdmin = () => !REMOTE || !!adminPwd;
+
+    /* --- Supabase (REST diretto, nessuna libreria) --- */
+    async function sb(path, opt = {}) {
+      const r = await fetch(CONFIG.SUPABASE_URL + path, { ...opt, headers: { 'apikey': CONFIG.SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + CONFIG.SUPABASE_ANON_KEY, 'Content-Type': 'application/json', ...(opt.headers || {}) } });
+      if (!r.ok) throw new Error('HTTP ' + r.status + ' ' + (await r.text()));
+      return r.status === 204 ? null : r.json();
+    }
+    async function remoteLoad() {
+      const rows = await sb('/rest/v1/app_state?id=eq.1&select=data,version');
+      if (!rows.length) throw new Error('Tabella app_state vuota: esegui lo script SQL');
+      remoteVersion = rows[0].version;
+      const d = rows[0].data;
+      state = (d && d.players) ? d : defaultState();
+    }
+    let saveTimer = null, saving = false;
+    async function remoteSave() {
+      saveTimer = null;
+      if (saving) { saveTimer = setTimeout(remoteSave, 300); return; }
+      saving = true; setSync('salvataggio…');
+      try {
+        const res = await sb('/rest/v1/rpc/save_state', { method: 'POST', body: JSON.stringify({ p_pwd: adminPwd, p_data: state, p_version: remoteVersion }) });
+        if (res.ok) { remoteVersion = res.version; setSync('sincronizzato'); }
+        else if (res.error === 'auth') { setSync('password errata'); toast('Password admin non valida'); logout(); }
+        else if (res.error === 'conflict') { setSync('conflitto'); toast('Dati modificati da un altro dispositivo: ricarico'); await refresh(); }
+      } catch (e) { console.error(e); setSync('errore rete'); toast('Salvataggio fallito: ' + e.message); }
+      saving = false;
+    }
+    function save() {
+      if (!REMOTE) { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); return; }
+      if (!isAdmin()) return;
+      clearTimeout(saveTimer); saveTimer = setTimeout(remoteSave, 400);   // debounce: molte modifiche ravvicinate → un solo invio
+    }
+    function setSync(t) { $('#syncStatus').textContent = REMOTE ? ('☁ ' + t) : '💾 solo questo dispositivo'; }
+    async function refresh() {
+      if (!REMOTE) return;
+      try { await remoteLoad(); setSync('sincronizzato'); } catch (e) { console.error(e); setSync('errore'); toast('Impossibile caricare i dati: ' + e.message); }
+      renderPlayers(); renderTeams(); if ($('#storico').classList.contains('active')) renderStorico();
+    }
+    async function login() {
+      const pwd = prompt('Password admin:'); if (!pwd) return;
+      try {
+        const ok = await sb('/rest/v1/rpc/check_pwd', { method: 'POST', body: JSON.stringify({ p_pwd: pwd }) });
+        if (!ok) { toast('Password errata'); return; }
+        adminPwd = pwd; sessionStorage.setItem('calcio8_admin', pwd); applyRole(); toast('Accesso admin effettuato');
+      }
+      catch (e) { toast('Errore: ' + e.message); }
+    }
+    function logout() { adminPwd = ''; sessionStorage.removeItem('calcio8_admin'); applyRole(); }
+    function applyRole() {
+      document.body.classList.toggle('readonly', !isAdmin());
+      const b = $('#btnLogin'); b.style.display = REMOTE ? '' : 'none';
+      b.textContent = adminPwd ? '✓ Admin · Esci' : '🔒 Admin'; b.onclick = adminPwd ? logout : login;
+      $('#btnRefresh').style.display = REMOTE ? '' : 'none';
+      renderPlayers();
+    }
+    async function init() {
+      if (REMOTE) { setSync('caricamento…'); await refresh(); }
+      else { try { const s = JSON.parse(localStorage.getItem(STORAGE_KEY)); if (s && s.players) state = s; } catch (e) { } setSync(''); }
+      applyRole(); renderTeams();
+    }
+
+    /* Statistiche derivate dallo storico partite (punti, presenze) */
+    function computeStats() {
+      const st = {};
+      for (const p of state.players) st[p.id] = { pts: 0, pg: 0, v: 0, n: 0, p: 0 };
+      let totPts = 0, totPg = 0;
+      for (const m of state.matches) {
+        const resA = m.golA > m.golB ? 3 : m.golA === m.golB ? 1 : 0;
+        const resB = m.golB > m.golA ? 3 : m.golA === m.golB ? 1 : 0;
+        for (const [team, res] of [[m.teamA, resA], [m.teamB, resB]]) {
+          for (const s of team) {
+            const x = st[s.id]; if (!x) continue;
+            x.pts += res; x.pg++; if (res === 3) x.v++; else if (res === 1) x.n++; else x.p++;
+            totPts += res; totPg++;
+          }
+        }
+      }
+      // Rating = media punti/partita, stabilizzata verso la media generale per chi ha poche presenze:
+      // (punti + K·media) / (partite + K). Con 0 partite vale la media generale; con molte converge alla media reale.
+      const K = 2, prior = totPg ? totPts / totPg : 1;
+      for (const id in st) { const x = st[id]; x.ppg = x.pg ? x.pts / x.pg : 0; x.rating = (x.pts + K * prior) / (x.pg + K); }
+      return st;
+    }
+
+    /* ===================== ALGORITMO =====================
+       1) Per ogni possibile divisione dei 16 in due gruppi da 8 (C(15,7)=6435, il primo
+          giocatore è fissato in A per evitare specchi) si calcola per ciascun gruppo
+          l'assegnazione ottima degli 8 ruoli con l'algoritmo ungherese: ogni slot
+          (POR, DD, DC, DS, ED, CC, ES, ATT) viene SEMPRE coperto, al costo minimo.
+       2) Il costo di un giocatore in un ruolo dipende dalle sue 3 preferenze
+          (0 / 1 / 2, fuori preferenza 6). Lo slot POR è neutro (costo 0 per tutti):
+          un portiere di ruolo ci va fisso; senza portiere la porta si fa a turni di
+          5 minuti, quindi chi "inizia in porta" è semplicemente l'8° giocatore e
+          rientra a rotazione. Tutti gli 8 sono valutati come giocatori di movimento.
+       3) Punteggio della divisione = fit ruoli totale + squilibrio fit tra le squadre
+          + differenza di forza (punti) + differenza di forza per reparto.
+       4) Si sceglie a caso tra le divisioni entro una tolleranza dall'ottimo, così
+          "Rigenera" propone varianti diverse ma sempre ottimali o quasi.            */
+
+    function roleCost(p, role) {
+      const isGk = p.roles.includes('POR');
+      if (role === 'POR') return 0;
+      if (isGk) return 8;
+      const i = p.roles.indexOf(role);
+      return i === -1 ? 6 : i;
+    }
+
+    // Algoritmo ungherese (assegnamento a costo minimo, matrice n x n). Ritorna la colonna per ogni riga.
+    function hungarian(cost) {
+      const n = cost.length, INF = 1e9;
+      const u = new Array(n + 1).fill(0), v = new Array(n + 1).fill(0), p = new Array(n + 1).fill(0), way = new Array(n + 1).fill(0);
+      for (let i = 1; i <= n; i++) {
+        p[0] = i; let j0 = 0; const minv = new Array(n + 1).fill(INF), used = new Array(n + 1).fill(false);
+        do {
+          used[j0] = true; const i0 = p[j0]; let delta = INF, j1 = 0;
+          for (let j = 1; j <= n; j++) if (!used[j]) {
+            const cur = cost[i0 - 1][j - 1] - u[i0] - v[j];
+            if (cur < minv[j]) { minv[j] = cur; way[j] = j0; }
+            if (minv[j] < delta) { delta = minv[j]; j1 = j; }
+          }
+          for (let j = 0; j <= n; j++) { if (used[j]) { u[p[j]] += delta; v[j] -= delta; } else minv[j] -= delta; }
+          j0 = j1;
+        } while (p[j0] !== 0);
+        do { const j1 = way[j0]; p[j0] = p[j1]; j0 = j1; } while (j0);
+      }
+      const ans = new Array(n); for (let j = 1; j <= n; j++) if (p[j]) ans[p[j] - 1] = j - 1; return ans;
+    }
+
+    // Miglior assegnazione ruoli per 8 giocatori → {cost, lineup:[{id,role}], linePts}
+    function assignTeam(players, stats) {
+      const cost = players.map(p => ROLES.map(r => roleCost(p, r)));
+      const a = hungarian(cost);
+      let tot = 0; const lineup = []; const linePts = { dif: 0, cen: 0, att: 0 };
+      players.forEach((p, i) => { const role = ROLES[a[i]]; tot += cost[i][a[i]]; lineup.push({ id: p.id, role }); if (LINE[role]) linePts[LINE[role]] += stats[p.id].rating; });
+      return { cost: tot, lineup, linePts };
+    }
+
+    const W_ROLE = 10, W_FIT = 4, W_STR = 20, W_LINE = 10, TOL = 2;
+    function scoreSplit(A, B, stats) {
+      const ra = assignTeam(A, stats), rb = assignTeam(B, stats);
+      const strA = A.reduce((s, p) => s + stats[p.id].rating, 0), strB = B.reduce((s, p) => s + stats[p.id].rating, 0);
+      let lineDiff = 0; for (const l in ra.linePts) lineDiff += Math.abs(ra.linePts[l] - rb.linePts[l]);
+      const score = W_ROLE * (ra.cost + rb.cost)          // qualità complessiva dei ruoli
+        + W_FIT * Math.abs(ra.cost - rb.cost)    // nessuna squadra "sacrificata" nei ruoli
+        + W_STR * Math.abs(strA - strB)          // forza totale bilanciata (somma dei rating)
+        + W_LINE * lineDiff;                   // forza bilanciata reparto per reparto
+      return { score, A: ra.lineup, B: rb.lineup, strA, strB };
+    }
+
+    function* combos(arr, k, start = 0, acc = []) {
+      if (acc.length === k) { yield acc.slice(); return; }
+      for (let i = start; i <= arr.length - (k - acc.length); i++) { acc.push(arr[i]); yield* combos(arr, k, i + 1, acc); acc.pop(); }
+    }
+
+    function generateTeams(players, stats) {
+      const ps = shuffle(players.slice());
+      const first = ps[0], rest = ps.slice(1);
+      let best = Infinity; const all = [];
+      for (const c of combos(rest, 7)) {
+        const A = [first, ...c], B = rest.filter(p => !c.includes(p));
+        const r = scoreSplit(A, B, stats);
+        all.push(r); if (r.score < best) best = r.score;
+      }
+      const cand = all.filter(r => r.score <= best + TOL);
+      return cand[Math.floor(Math.random() * cand.length)];
+    }
+    function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[a[i], a[j]] = [a[j], a[i]]; } return a; }
+
+    /* ===================== UI ===================== */
+    const $ = s => document.querySelector(s);
+    function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2200); }
+
+    document.querySelectorAll('nav button').forEach(b => b.onclick = () => showTab(b.dataset.tab));
+    function showTab(id) {
+      document.querySelectorAll('nav button').forEach(b => b.classList.toggle('active', b.dataset.tab === id));
+      document.querySelectorAll('main section').forEach(s => s.classList.toggle('active', s.id === id));
+      if (id === 'storico') renderStorico(); if (id === 'squadre') renderTeams();
+    }
+
+    /* --- Giocatori --- */
+    function renderPlayers() {
+      const stats = computeStats();
+      const list = $('#playerList'); list.innerHTML = '';
+      const sorted = state.players.slice().sort((a, b) => a.nick.localeCompare(b.nick, 'it', { sensitivity: 'base' }));
+      for (const p of sorted) {
+        const sel = state.selected.includes(p.id);
+        const el = document.createElement('label'); el.className = 'pl' + (sel ? ' sel' : '');
+        el.innerHTML = `<input type="checkbox" ${sel ? 'checked' : ''} ${isAdmin() ? '' : 'disabled'}>
+      <div><div class="nick">${esc(p.nick)}</div><div class="roles">${esc((p.nome + ' ' + p.cognome).trim())} · ${p.roles.join(' / ')}</div></div>
+      <div class="pts" title="Rating (media punti/partita)">${stats[p.id].rating.toFixed(2)}</div>
+      <button class="del admin-only" title="Elimina">×</button>`;
+        el.querySelector('input').onchange = e => {
+          if (e.target.checked) { if (state.selected.length >= 16) { e.target.checked = false; toast('Hai già selezionato 16 giocatori'); return; } state.selected.push(p.id); }
+          else state.selected = state.selected.filter(x => x !== p.id);
+          save(); renderPlayers();
+        };
+        el.querySelector('.del').onclick = e => { e.preventDefault(); if (confirm(`Eliminare ${p.nick}? Resta nello storico delle partite già giocate.`)) { state.players = state.players.filter(x => x !== p); state.selected = state.selected.filter(x => x !== p.id); save(); renderPlayers(); } };
+        list.appendChild(el);
+      }
+      $('#selCount').textContent = state.selected.length;
+      $('#btnGenerate').disabled = state.selected.length !== 16;
+    }
+    $('#btnClearSel').onclick = () => { state.selected = []; save(); renderPlayers(); };
+    $('#btnGenerate').onclick = () => { if (doGenerate()) showTab('squadre'); };
+    $('#btnRegen').onclick = () => { if (doGenerate()) { renderTeams(); toast('Nuova variante generata'); } };
+    function doGenerate() {
+      const players = state.selected.map(byId).filter(Boolean);
+      if (players.length !== 16) { toast('Servono esattamente 16 giocatori'); return false; }
+      const r = generateTeams(players, computeStats());
+      state.current = { A: r.A, B: r.B }; picked = null; save(); return true;
+    }
+
+    for (const id of ['#nR1', '#nR2', '#nR3']) $(id).innerHTML = ROLES.map(r => `<option>${r}</option>`).join('');
+    $('#btnAdd').onclick = () => {
+      const nick = $('#nNick').value.trim(); if (!nick) { toast('Nickname obbligatorio'); return; }
+      if (state.players.some(p => p.nick.toLowerCase() === nick.toLowerCase())) { toast('Nickname già esistente'); return; }
+      state.players.push({ id: 'p' + Date.now(), nome: $('#nNome').value.trim(), cognome: $('#nCognome').value.trim(), nick, roles: [$('#nR1').value, $('#nR2').value, $('#nR3').value] });
+      $('#nNome').value = $('#nCognome').value = $('#nNick').value = ''; save(); renderPlayers(); toast('Giocatore aggiunto');
+    };
+
+    /* --- Squadre --- */
+    let picked = null; // {team:'A'|'B', id}
+    function renderTeams() {
+      const cur = state.current; const has = !!cur;
+      $('#noTeams').style.display = has ? 'none' : 'block'; $('#teamsWrap').style.display = has ? 'block' : 'none';
+      if (!has) return;
+      if (!$('#mDate').value) $('#mDate').value = new Date().toISOString().slice(0, 10);
+      $('#fieldList').innerHTML = [...new Set(state.matches.map(m => m.field).filter(Boolean))].map(f => `<option value="${esc(f)}">`).join('');
+      const stats = computeStats();
+      let off = 0;
+      for (const t of ['A', 'B']) {
+        const pitch = $('#pitch' + t); pitch.innerHTML = '';
+        const lineup = cur[t]; let str = 0;
+        for (const row of PITCH_ROWS) {
+          const line = document.createElement('div'); line.className = 'line';
+          for (const role of row) {
+            const s = lineup.find(x => x.role === role); const p = byId(s.id); str += stats[p.id].rating;
+            const i = p.roles.indexOf(role); const isGk = p.roles.includes('POR');
+            let cls = '', lab = '';
+            if (role === 'POR') { lab = isGk ? 'portiere fisso' : 'inizia in porta'; }
+            else if (i === 0) lab = '1ª scelta';
+            else if (i === 1) { lab = '2ª scelta'; cls = 'c2'; off++; }
+            else if (i === 2) { lab = '3ª scelta'; cls = 'c2'; off++; }
+            else { lab = 'fuori ruolo'; cls = 'c3'; off++; }
+            const el = document.createElement('div'); el.className = 'slot' + (picked && picked.team === t && picked.id === p.id ? ' picked' : '');
+            el.innerHTML = `<div class="r">${role === 'POR' && !isGk ? "PORTA (5')" : role}</div><div class="n">${esc(p.nick)}</div><div class="p ${cls}">${lab} · ${stats[p.id].rating.toFixed(2)}</div>`;
+            el.onclick = () => onPick(t, p.id);
+            line.appendChild(el);
+          }
+          pitch.appendChild(line);
+        }
+        // rotazione porta: il portiere fisso se c'è, altrimenti tutti a turno di 5' partendo da chi inizia in porta
+        const rot = $('#rot' + t); const gkSlot = lineup.find(x => x.role === 'POR'); const gkP = byId(gkSlot.id);
+        if (gkP.roles.includes('POR')) rot.innerHTML = `🧤 Portiere fisso: <b>${esc(gkP.nick)}</b>`;
+        else {
+          const order = [gkP, ...PITCH_ROWS.flat().filter(r => r !== 'POR').map(r => byId(lineup.find(x => x.role === r).id))];
+          rot.innerHTML = "🧤 Turni in porta (5' ciascuno): " + order.map((p, i) => `<span class="badge">${i + 1}. ${esc(p.nick)}</span>`).join(' ');
+        }
+        $('#str' + t).textContent = str.toFixed(2); $('#h' + t).textContent = 'forza ' + str.toFixed(2);
+      }
+      $('#offRole').textContent = off;
+    }
+    function onPick(team, id) {
+      if (!isAdmin()) return;
+      if (!picked) { picked = { team, id }; renderTeams(); return; }
+      if (picked.team === team) { picked = picked.id === id ? null : { team, id }; renderTeams(); return; }
+      // scambio tra squadre e riassegnazione ruoli
+      const stats = computeStats();
+      const idsA = state.current.A.map(s => s.id), idsB = state.current.B.map(s => s.id);
+      const a = picked.team === 'A' ? picked.id : id, b = picked.team === 'B' ? picked.id : id;
+      const newA = idsA.map(x => x === a ? b : x), newB = idsB.map(x => x === b ? a : x);
+      state.current = { A: assignTeam(newA.map(byId), stats).lineup, B: assignTeam(newB.map(byId), stats).lineup };
+      picked = null; save(); renderTeams(); toast('Scambio effettuato');
+    }
+    $('#btnSave').onclick = () => {
+      const golA = parseInt($('#golA').value, 10), golB = parseInt($('#golB').value, 10);
+      if (isNaN(golA) || isNaN(golB) || golA < 0 || golB < 0) { toast('Inserisci un risultato valido'); return; }
+      const date = $('#mDate').value || new Date().toISOString().slice(0, 10);
+      const field = $('#mField').value.trim();
+      if (!confirm(`Salvare la partita del ${fmtDate(date)}${field ? ' a ' + field : ''}: A ${golA} – ${golB} B?`)) return;
+      state.matches.push({ date, field, teamA: state.current.A, teamB: state.current.B, golA, golB });
+      state.current = null; state.selected = []; $('#golA').value = $('#golB').value = 0; $('#mField').value = ''; save();
+      toast('Partita salvata'); showTab('storico'); renderPlayers();
+    };
+
+    /* --- Storico --- */
+    function renderStorico() {
+      const stats = computeStats();
+      const rows = state.players.map(p => ({ p, s: stats[p.id] })).sort((a, b) => b.s.rating - a.s.rating || b.s.ppg - a.s.ppg || b.s.pts - a.s.pts || a.p.nick.localeCompare(b.p.nick));
+      $('#standings tbody').innerHTML = rows.map((r, i) => `<tr><td>${i + 1}</td><td><b>${esc(r.p.nick)}</b></td><td class="num">${r.s.pg}</td><td class="num">${r.s.v}</td><td class="num">${r.s.n}</td><td class="num">${r.s.p}</td><td class="num">${r.s.pts}</td><td class="num">${r.s.pg ? r.s.ppg.toFixed(2) : '–'}</td><td class="num"><b>${r.s.rating.toFixed(2)}</b></td></tr>`).join('');
+      const m = $('#matches');
+      if (!state.matches.length) { m.innerHTML = '<div class="muted">Nessuna partita registrata.</div>'; return; }
+      const nick = id => { const p = byId(id); return p ? p.nick : '(eliminato)'; };
+      const fmt = team => PITCH_ROWS.flat().map(r => { const s = team.find(x => x.role === r); return `<span class="badge">${r} ${esc(nick(s.id))}</span>`; }).join(' ');
+      const ordered = state.matches.map((x, idx) => ({ x, idx })).sort((a, b) => String(b.x.date).localeCompare(String(a.x.date)) || b.idx - a.idx);
+      m.innerHTML = ordered.map(({ x, idx }) => {
+        return `<div class="match"><div class="hdr"><span class="muted">📅 ${fmtDate(x.date)}${x.field ? ' · 📍 ' + esc(x.field) : ''}</span><span class="score"><span class="cA">A</span> ${x.golA} – ${x.golB} <span class="cB">B</span></span><button class="danger admin-only" data-del="${idx}">Elimina</button></div>
+      <div class="lineups"><div>${fmt(x.teamA)}</div><div>${fmt(x.teamB)}</div></div></div>`;
+      }).join('');
+      m.querySelectorAll('[data-del]').forEach(b => b.onclick = () => { if (confirm('Eliminare questa partita? I punti verranno ricalcolati.')) { state.matches.splice(+b.dataset.del, 1); save(); renderStorico(); renderPlayers(); } });
+    }
+
+    /* --- Backup --- */
+    $('#btnExport').onclick = () => {
+      const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'calcio8_backup_' + new Date().toISOString().slice(0, 10) + '.json'; a.click();
+    };
+    $('#btnImport').onclick = () => $('#fileImport').click();
+    $('#fileImport').onchange = e => {
+      const f = e.target.files[0]; if (!f) return;
+      const r = new FileReader(); r.onload = () => { try { const s = JSON.parse(r.result); if (!s.players || !s.matches) throw 0; state = s; save(); renderPlayers(); renderTeams(); toast('Backup importato'); } catch (_) { toast('File non valido'); } }; r.readAsText(f); e.target.value = '';
+    };
+    $('#btnReset').onclick = () => { if (confirm('Cancellare TUTTO (giocatori, storico, punti) e ripartire dalla lista iniziale?')) { state = defaultState(); save(); renderPlayers(); renderTeams(); toast('Reset eseguito'); } };
+
+    function fmtDate(d) { const dt = new Date(String(d).length === 10 ? d + 'T12:00:00' : d); return isNaN(dt) ? String(d) : dt.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' }); }
+    function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+
+    $('#btnRefresh').onclick = () => { refresh(); toast('Dati aggiornati'); };
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && REMOTE && !saveTimer) refresh(); });
+    init();
+  </script>
+</body>
+
+</html>
