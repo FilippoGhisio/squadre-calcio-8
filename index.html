@@ -626,6 +626,10 @@
         <div class="muted admin-only" id="genHint" style="margin-top:6px"></div>
       </div>
       <div class="card">
+        <div class="row" style="margin-bottom:10px">
+          <input id="pSearch" type="search" placeholder="🔍 Cerca per nome, cognome o nickname" class="grow" autocomplete="off">
+          <span class="muted" id="pSearchCount"></span>
+        </div>
         <div class="plist" id="playerList"></div>
       </div>
       <div class="card admin-only">
@@ -938,7 +942,12 @@
       const list = $('#playerList'); list.innerHTML = '';
       const act = activePlayers();
       if (!act.length) list.innerHTML = '<div class="muted">Nessun giocatore nella tabella players.</div>';
-      const sorted = act.sort((a, b) => a.nick.localeCompare(b.nick, 'it', { sensitivity: 'base' }));
+      // filtro di ricerca: tutte le parole digitate devono comparire in nome, cognome o nickname (accenti ignorati)
+      const q = norm($('#pSearch').value).split(/\s+/).filter(Boolean);
+      const sorted = act.sort((a, b) => a.nick.localeCompare(b.nick, 'it', { sensitivity: 'base' }))
+        .filter(p => { const h = norm(p.nome + ' ' + p.cognome + ' ' + p.nick); return q.every(w => h.includes(w)); });
+      $('#pSearchCount').textContent = q.length ? `${sorted.length}/${act.length}` : '';
+      if (act.length && !sorted.length) list.innerHTML = '<div class="muted">Nessun giocatore corrisponde alla ricerca.</div>';
       for (const p of sorted) {
         const sel = selected.includes(p.id);
         const el = document.createElement('label'); el.className = 'pl' + (sel ? ' sel' : '');
@@ -960,6 +969,8 @@
       $('#genHint').textContent = n ? `Le squadre verranno salvate per la partita del ${fmtDate(n.date)}.` : 'Per generare le squadre imposta prima la prossima partita nella Dashboard.';
     }
     $('#btnClearSel').onclick = () => { selected = []; saveSel(); renderPlayers(); };
+    $('#pSearch').oninput = renderPlayers;
+    function norm(t) { return String(t).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''); }
     $('#btnGenerate').onclick = async () => { if (await doGenerate()) showTab('squadre'); };
     $('#btnRegen').onclick = async () => { await doGenerate('Nuova variante generata'); };
     async function doGenerate(msg) {
