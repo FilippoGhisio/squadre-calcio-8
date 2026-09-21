@@ -704,7 +704,7 @@
     /* ===================== DATI ===================== */
     const ROLES = ['POR', 'DD', 'DC', 'DS', 'ED', 'CC', 'ES', 'ATT'];      // 8 slot per squadra (3-3-1 + POR)
     const LINE = { POR: null, DD: 'dif', DC: 'dif', DS: 'dif', ED: 'cen', CC: 'cen', ES: 'cen', ATT: 'att' };
-    const PITCH_ROWS = [['ATT'], ['ED', 'CC', 'ES'], ['DD', 'DC', 'DS'], ['POR']];
+    const PITCH_ROWS = [['ATT'], ['ES', 'CC', 'ED'], ['DS', 'DC', 'DD'], ['POR']];   // da sinistra a destra come visto dal proprio portiere
 
     /* ===================== CONFIGURAZIONE =====================
        URL e chiave "anon public" del progetto Supabase. Tutti i dati stanno nelle tabelle
