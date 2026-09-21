@@ -423,6 +423,90 @@
       display: none !important
     }
 
+    /* --- Schermata di accesso --- */
+    #gate {
+      display: none;
+      min-height: 100vh;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      padding: 24px;
+      text-align: center
+    }
+
+    #gate h1 {
+      font-size: 28px;
+      margin: 0 0 10px
+    }
+
+    #gate button {
+      width: min(280px, 100%);
+      padding: 14px;
+      font-size: 16px
+    }
+
+    body.gated #gate {
+      display: flex
+    }
+
+    body.gated header,
+    body.gated main {
+      display: none
+    }
+
+    /* Il visitatore vede solo la dashboard */
+    body.visitor nav {
+      display: none
+    }
+
+    /* --- Prossima partita --- */
+    .hero {
+      background: linear-gradient(135deg, var(--pitch), var(--pitch2));
+      color: #fff;
+      border: none;
+      padding: 20px
+    }
+
+    .hero .lbl {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      opacity: .85;
+      font-weight: 700
+    }
+
+    .hero .big {
+      font-size: 26px;
+      font-weight: 800;
+      margin-top: 4px;
+      text-transform: capitalize
+    }
+
+    .hero .none {
+      font-size: 18px;
+      margin-top: 4px;
+      opacity: .9
+    }
+
+    .hero .meta {
+      display: flex;
+      gap: 28px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+      font-size: 18px;
+      font-weight: 700
+    }
+
+    .hero .meta b {
+      display: block;
+      font-size: 11px;
+      opacity: .8;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      font-weight: 600
+    }
+
     .toast {
       position: fixed;
       bottom: 18px;
@@ -444,112 +528,47 @@
   </style>
 </head>
 
-<body>
+<body class="gated">
+  <!-- ================= ACCESSO ================= -->
+  <div id="gate">
+    <div style="font-size:56px">⚽</div>
+    <h1>Calcio a 8</h1>
+    <button class="primary" id="gateVisitor">Accesso visitatore</button>
+    <button class="ghost" id="gateAdmin">🔒 Accesso admin</button>
+    <div class="muted" id="gateMsg" style="min-height:18px"></div>
+  </div>
+
   <header>
     <h1>⚽ Squadre Calcio a 8</h1>
     <div id="syncBox" class="row" style="gap:6px">
       <span id="syncStatus" class="muted"></span>
       <button class="ghost" id="btnRefresh" title="Ricarica i dati dal server" style="display:none">↻</button>
-      <button class="ghost" id="btnLogin" style="display:none">🔒 Admin</button>
+      <button class="ghost" id="btnLogout" style="display:none">Esci</button>
     </div>
     <nav>
-      <button data-tab="giocatori" class="active">Giocatori</button>
+      <button data-tab="dashboard" class="active">Dashboard</button>
+      <button data-tab="giocatori">Giocatori</button>
       <button data-tab="squadre">Squadre</button>
-      <button data-tab="storico">Storico</button>
     </nav>
   </header>
 
   <main>
-    <!-- ================= GIOCATORI ================= -->
-    <section id="giocatori" class="active">
-      <div class="card">
-        <div class="row">
-          <div class="grow"><b>Seleziona i 16 presenti</b> <span class="muted">· <span id="selCount">0</span>/16</span>
-          </div>
-          <button class="ghost admin-only" id="btnClearSel">Deseleziona tutti</button>
-          <button class="primary admin-only" id="btnGenerate" disabled>Genera squadre</button>
-        </div>
-      </div>
-      <div class="card">
-        <div class="plist" id="playerList"></div>
-      </div>
+    <!-- ================= DASHBOARD ================= -->
+    <section id="dashboard" class="active">
+      <div class="card hero" id="nextCard"></div>
       <div class="card admin-only">
-        <b>Aggiungi giocatore</b>
+        <b>Imposta prossima partita</b>
         <div class="row" style="margin-top:8px">
-          <input id="nNome" placeholder="Nome" style="width:120px">
-          <input id="nCognome" placeholder="Cognome" style="width:130px">
-          <input id="nNick" placeholder="Nickname *" style="width:130px">
-          <select id="nR1"></select><select id="nR2"></select><select id="nR3"></select>
-          <button class="ghost" id="btnAdd">Aggiungi</button>
+          <label class="muted">Data <input type="date" id="nxDate"></label>
+          <label class="muted">Ora <input type="time" id="nxTime"></label>
+          <label class="muted">Campo <input id="nxField" list="fieldList" placeholder="es. Sportivo XYZ"
+              style="width:200px"></label>
+          <datalist id="fieldList"></datalist>
           <div class="grow"></div>
-          <button class="ghost" id="btnCsv">📄 Importa CSV del modulo</button>
-          <input type="file" id="fileCsv" accept=".csv,text/csv" style="display:none">
-        </div>
-        <div class="muted" style="margin-top:6px">"Importa CSV" legge l'export del Google Form (Nome, Cognome, Nickname, 3 ruoli) e aggiunge solo i nickname non ancora presenti. Ruoli: 1ª, 2ª, 3ª scelta. Un POR di ruolo sta in porta tutta la
-          partita; senza POR la porta si fa a turni di 5 minuti e tutti gli 8 sono valutati come giocatori di movimento.
+          <button class="ghost" id="btnNextClear">Rimuovi</button>
+          <button class="primary" id="btnNextSave">Salva</button>
         </div>
       </div>
-      <div class="card row">
-        <button class="ghost" id="btnExport">Esporta backup</button>
-        <button class="ghost admin-only" id="btnImport">Importa backup</button>
-        <input type="file" id="fileImport" accept="application/json" style="display:none">
-        <div class="grow"></div>
-        <button class="danger admin-only" id="btnReset">Reset totale</button>
-      </div>
-    </section>
-
-    <!-- ================= SQUADRE ================= -->
-    <section id="squadre">
-      <div id="noTeams" class="card muted">Nessuna formazione generata. Vai in <b>Giocatori</b>, seleziona 16 presenti e
-        premi <b>Genera squadre</b>.</div>
-      <div id="teamsWrap" style="display:none">
-        <div class="card row">
-          <div class="stat grow">
-            <div><span class="muted">Forza A</span><b id="strA">0</b></div>
-            <div><span class="muted">Forza B</span><b id="strB">0</b></div>
-            <div><span class="muted">Fuori 1ª scelta</span><b id="offRole">0</b></div>
-          </div>
-          <div class="muted" style="flex-basis:100%">Forza = somma dei rating (media punti/partita, stabilizzata per chi
-            ha poche presenze).</div>
-          <button class="ghost admin-only" id="btnRegen">↻ Rigenera</button>
-        </div>
-        <div class="muted admin-only" style="margin:-6px 0 10px 4px">Per uno scambio manuale: tocca un giocatore di una
-          squadra e poi uno dell'altra. I ruoli vengono riassegnati automaticamente.</div>
-        <div class="teams">
-          <div class="team A">
-            <h2><span>Squadra A</span><span id="hA"></span></h2>
-            <div class="pitch" id="pitchA"></div>
-            <div class="rot" id="rotA"></div>
-          </div>
-          <div class="team B">
-            <h2><span>Squadra B</span><span id="hB"></span></h2>
-            <div class="pitch" id="pitchB"></div>
-            <div class="rot" id="rotB"></div>
-          </div>
-        </div>
-        <div class="card admin-only" style="margin-top:14px">
-          <b>Registra risultato</b>
-          <div class="row" style="margin-top:8px">
-            <label class="muted">Data <input type="date" id="mDate"></label>
-            <label class="muted">Campo <input id="mField" list="fieldList" placeholder="es. Sportivo XYZ"
-                style="width:200px"></label>
-            <datalist id="fieldList"></datalist>
-          </div>
-          <div class="row res" style="margin-top:8px">
-            <span class="cA">A</span><input type="number" id="golA" min="0" value="0">
-            <span>–</span>
-            <input type="number" id="golB" min="0" value="0"><span class="cB">B</span>
-            <div class="grow"></div>
-            <button class="primary" id="btnSave">Salva partita</button>
-          </div>
-          <div class="muted" style="margin-top:6px">Vittoria +3, pareggio +1, sconfitta 0 a ogni giocatore della
-            squadra.</div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ================= STORICO ================= -->
-    <section id="storico">
       <div class="card">
         <b>Classifica giocatori</b>
         <div class="muted">Media = punti / partite giocate. Rating = media stabilizzata: (punti + 2×media generale) /
@@ -574,8 +593,88 @@
         </div>
       </div>
       <div class="card">
-        <b>Partite</b>
+        <b>Partite giocate</b>
         <div id="matches" style="margin-top:8px"></div>
+      </div>
+    </section>
+
+    <!-- ================= GIOCATORI ================= -->
+    <section id="giocatori">
+      <div class="card">
+        <div class="row">
+          <div class="grow"><b>Seleziona i 16 presenti</b> <span class="muted">· <span id="selCount">0</span>/16</span>
+          </div>
+          <button class="ghost admin-only" id="btnClearSel">Deseleziona tutti</button>
+          <button class="primary admin-only" id="btnGenerate" disabled>Genera squadre</button>
+        </div>
+        <div class="muted admin-only" id="genHint" style="margin-top:6px"></div>
+      </div>
+      <div class="card">
+        <div class="plist" id="playerList"></div>
+      </div>
+      <div class="card admin-only">
+        <b>Aggiungi giocatore</b>
+        <div class="row" style="margin-top:8px">
+          <input id="nNome" placeholder="Nome" style="width:120px">
+          <input id="nCognome" placeholder="Cognome" style="width:130px">
+          <input id="nNick" placeholder="Nickname *" style="width:130px">
+          <select id="nR1"></select><select id="nR2"></select><select id="nR3"></select>
+          <button class="ghost" id="btnAdd">Aggiungi</button>
+        </div>
+        <div class="muted" style="margin-top:6px">Ruoli: 1ª, 2ª, 3ª scelta. Un POR di ruolo sta in porta tutta la partita; senza POR la porta si fa a
+          turni di 5 minuti e tutti gli 8 sono valutati come giocatori di movimento. Un giocatore eliminato che ha già
+          giocato resta nello storico e può essere riaggiunto con lo stesso nickname.</div>
+      </div>
+    </section>
+
+    <!-- ================= SQUADRE ================= -->
+    <section id="squadre">
+      <div id="noTeams" class="card muted"></div>
+      <div id="teamsWrap" style="display:none">
+        <div class="card row">
+          <div class="grow" id="teamsMatch"></div>
+          <div class="stat">
+            <div><span class="muted">Forza A</span><b id="strA">0</b></div>
+            <div><span class="muted">Forza B</span><b id="strB">0</b></div>
+            <div><span class="muted">Fuori 1ª scelta</span><b id="offRole">0</b></div>
+          </div>
+          <div class="muted" style="flex-basis:100%">Forza = somma dei rating (media punti/partita, stabilizzata per chi
+            ha poche presenze).</div>
+          <button class="ghost admin-only" id="btnRegen">↻ Rigenera</button>
+        </div>
+        <div class="muted admin-only" style="margin:-6px 0 10px 4px">Per uno scambio manuale: tocca un giocatore di una
+          squadra e poi uno dell'altra. I ruoli vengono riassegnati automaticamente.</div>
+        <div class="teams">
+          <div class="team A">
+            <h2><span>Squadra A</span><span id="hA"></span></h2>
+            <div class="pitch" id="pitchA"></div>
+            <div class="rot" id="rotA"></div>
+          </div>
+          <div class="team B">
+            <h2><span>Squadra B</span><span id="hB"></span></h2>
+            <div class="pitch" id="pitchB"></div>
+            <div class="rot" id="rotB"></div>
+          </div>
+        </div>
+        <div class="card admin-only" style="margin-top:14px">
+          <b>Registra risultato</b>
+          <div class="muted">Data, ora e campo sono quelli della prossima partita: modificali solo se è stata spostata.</div>
+          <div class="row" style="margin-top:8px">
+            <label class="muted">Data <input type="date" id="mDate"></label>
+            <label class="muted">Ora <input type="time" id="mTime"></label>
+            <label class="muted">Campo <input id="mField" list="fieldList" placeholder="es. Sportivo XYZ"
+                style="width:200px"></label>
+          </div>
+          <div class="row res" style="margin-top:8px">
+            <span class="cA">A</span><input type="number" id="golA" min="0" value="0">
+            <span>–</span>
+            <input type="number" id="golB" min="0" value="0"><span class="cB">B</span>
+            <div class="grow"></div>
+            <button class="primary" id="btnSave">Salva partita</button>
+          </div>
+          <div class="muted" style="margin-top:6px">Vittoria +3, pareggio +1, sconfitta 0 a ogni giocatore della
+            squadra.</div>
+        </div>
       </div>
     </section>
   </main>
@@ -586,27 +685,32 @@
     const ROLES = ['POR', 'DD', 'DC', 'DS', 'ED', 'CC', 'ES', 'ATT'];      // 8 slot per squadra (3-3-1 + POR)
     const LINE = { POR: null, DD: 'dif', DC: 'dif', DS: 'dif', ED: 'cen', CC: 'cen', ES: 'cen', ATT: 'att' };
     const PITCH_ROWS = [['ATT'], ['ED', 'CC', 'ES'], ['DD', 'DC', 'DS'], ['POR']];
-    const STORAGE_KEY = 'calcio8_v1';
 
-    /* ===================== CONFIGURAZIONE SALVATAGGIO =====================
-       Lascia vuoti i due campi → i dati restano nel browser (localStorage, solo su questo dispositivo).
-       Compila URL e chiave "anon" del tuo progetto Supabase (vedi README.md) → i dati sono condivisi
-       online; la lettura è libera, la scrittura richiede la password admin verificata dal server.   */
+    /* ===================== CONFIGURAZIONE =====================
+       URL e chiave "anon public" del progetto Supabase. Tutti i dati stanno nelle tabelle
+       players / matches / match_players (vedi supabase_setup.sql) e si leggono/scrivono SOLO
+       tramite le funzioni RPC: get_state (password visitatore o admin) e le funzioni di
+       scrittura (solo password admin). La chiave anon da sola non può leggere nulla.        */
     const CONFIG = {
-      SUPABASE_URL: 'https://bqkuickdyrovzjbllpyv.supabase.co',        // es. 'https://abcdefghij.supabase.co'
-      SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJxa3VpY2tkeXJvdnpqYmxscHl2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAwMDE0MDMsImV4cCI6MjEwNTU3NzQwM30.N-rAuuJzijgq4KQtuCAIaQSyZu1oqoKeLi8D_l1kirE',   // chiave "anon public" del progetto
+      SUPABASE_URL: 'https://bqkuickdyrovzjbllpyv.supabase.co',
+      SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJxa3VpY2tkeXJvdnpqYmxscHl2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAwMDE0MDMsImV4cCI6MjEwNTU3NzQwM30.N-rAuuJzijgq4KQtuCAIaQSyZu1oqoKeLi8D_l1kirE',
     };
-    const REMOTE = !!(CONFIG.SUPABASE_URL && CONFIG.SUPABASE_ANON_KEY);
 
-    function defaultState() {
-      return {
-        players: [], matches: [], selected: [], current: null
-      };
-    }
-    let state = defaultState();
-    let remoteVersion = 0, adminPwd = sessionStorage.getItem('calcio8_admin') || '';
-    const byId = id => state.players.find(p => p.id === id);
-    const isAdmin = () => !REMOTE || !!adminPwd;
+    let players = [];   // [{id, nome, cognome, nick, roles:[3], active}]  — anche gli eliminati (per lo storico)
+    let matches = [];   // [{id, date, time, field, golA, golB, played, A:[{id,role}], B:[{id,role}]}]
+    // Sessione: password e ruolo ('visitor' | 'admin') restano finché la scheda è aperta
+    let pwd = sessionStorage.getItem('calcio8_pwd') || '', role = sessionStorage.getItem('calcio8_role') || '';
+    // Selezione dei presenti: dato di lavoro dell'admin, resta solo in questo browser
+    let selected = []; try { selected = JSON.parse(localStorage.getItem('calcio8_sel')) || []; } catch (e) { }
+    const saveSel = () => localStorage.setItem('calcio8_sel', JSON.stringify(selected));
+
+    const byId = id => players.find(p => p.id === id);
+    const activePlayers = () => players.filter(p => p.active);
+    const isAdmin = () => role === 'admin';
+    const nextMatch = () => matches.find(m => !m.played);
+    const playedMatches = () => matches.filter(m => m.played);
+    // formazioni della prossima partita, se complete
+    const currentLineup = () => { const n = nextMatch(); return n && n.A.length === 8 && n.B.length === 8 ? { A: n.A, B: n.B } : null; };
 
     /* --- Supabase (REST diretto, nessuna libreria) --- */
     async function sb(path, opt = {}) {
@@ -614,69 +718,90 @@
       if (!r.ok) throw new Error('HTTP ' + r.status + ' ' + (await r.text()));
       return r.status === 204 ? null : r.json();
     }
-    async function remoteLoad() {
-      const rows = await sb('/rest/v1/app_state?id=eq.1&select=data,version');
-      if (!rows.length) throw new Error('Tabella app_state vuota: esegui lo script SQL');
-      remoteVersion = rows[0].version;
-      const d = rows[0].data;
-      state = (d && d.players) ? d : defaultState();
+    // Chiama una funzione RPC con la password corrente. {error:'auth'} → logout.
+    async function rpc(fn, body = {}, p = pwd) {
+      const res = await sb('/rest/v1/rpc/' + fn, { method: 'POST', body: JSON.stringify({ p_pwd: p, ...body }) });
+      if (!res) throw new Error('risposta vuota dal server');
+      if (res.error === 'auth') { const e = new Error('auth'); e.auth = true; throw e; }
+      if (res.error) throw new Error(res.error);
+      return res;
     }
-    let saveTimer = null, saving = false;
-    async function remoteSave() {
-      saveTimer = null;
-      if (saving) { saveTimer = setTimeout(remoteSave, 300); return; }
-      saving = true; setSync('salvataggio…');
-      try {
-        const res = await sb('/rest/v1/rpc/save_state', { method: 'POST', body: JSON.stringify({ p_pwd: adminPwd, p_data: state, p_version: remoteVersion }) });
-        if (res.ok) { remoteVersion = res.version; setSync('sincronizzato'); }
-        else if (res.error === 'auth') { setSync('password errata'); toast('Password admin non valida'); logout(); }
-        else if (res.error === 'conflict') { setSync('conflitto'); toast('Dati modificati da un altro dispositivo: ricarico'); await refresh(); }
-      } catch (e) { console.error(e); setSync('errore rete'); toast('Salvataggio fallito: ' + e.message); }
-      saving = false;
+    function normMatch(m) {
+      const side = t => (m.lineup || []).filter(x => x.team === t).map(x => ({ id: x.player_id, role: x.role }));
+      return { id: m.id, date: m.date, time: m.time || '', field: m.field || '', golA: m.gol_a, golB: m.gol_b, played: m.played, A: side('A'), B: side('B') };
     }
-    function save() {
-      if (!REMOTE) { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); return; }
-      if (!isAdmin()) return;
-      clearTimeout(saveTimer); saveTimer = setTimeout(remoteSave, 400);   // debounce: molte modifiche ravvicinate → un solo invio
+    function applyState(res) {
+      players = res.players || [];
+      matches = (res.matches || []).map(normMatch);
+      selected = selected.filter(id => { const p = byId(id); return p && p.active; });
     }
-    function setSync(t) { $('#syncStatus').textContent = REMOTE ? ('☁ ' + t) : '💾 solo questo dispositivo'; }
-    async function refresh() {
-      if (!REMOTE) return;
-      try { await remoteLoad(); setSync('sincronizzato'); } catch (e) { console.error(e); setSync('errore'); toast('Impossibile caricare i dati: ' + e.message); }
-      renderPlayers(); renderTeams(); if ($('#storico').classList.contains('active')) renderStorico();
-    }
-    async function login() {
-      const pwd = prompt('Password admin:'); if (!pwd) return;
-      try {
-        const ok = await sb('/rest/v1/rpc/check_pwd', { method: 'POST', body: JSON.stringify({ p_pwd: pwd }) });
-        if (!ok) { toast('Password errata'); return; }
-        adminPwd = pwd; sessionStorage.setItem('calcio8_admin', pwd); applyRole(); toast('Accesso admin effettuato');
+    async function reload() {
+      if (!role) return;
+      setSync('caricamento…');
+      try { applyState(await rpc('get_state')); setSync('sincronizzato'); }
+      catch (e) {
+        console.error(e);
+        if (e.auth) { toast('Sessione non valida, accedi di nuovo'); logout(); return; }
+        setSync('errore'); toast('Impossibile caricare i dati: ' + e.message);
       }
-      catch (e) { toast('Errore: ' + e.message); }
+      renderAll();
     }
-    function logout() { adminPwd = ''; sessionStorage.removeItem('calcio8_admin'); applyRole(); }
+    // Scrittura: esegue la RPC e ricarica tutto dal server (unica fonte di verità). Ritorna true se ok.
+    async function action(fn, body, okMsg) {
+      setSync('salvataggio…');
+      try { await rpc(fn, body); }
+      catch (e) {
+        console.error(e);
+        if (e.auth) { toast('Password admin non valida'); logout(); return false; }
+        setSync('errore'); toast('Errore: ' + e.message); return false;
+      }
+      await reload(); if (okMsg) toast(okMsg); return true;
+    }
+    function setSync(t) { $('#syncStatus').textContent = '☁ ' + t; }
+
+    /* --- Accesso --- */
+    async function login(want) {
+      const p = prompt(want === 'admin' ? 'Password admin:' : 'Password visitatore:'); if (!p) return;
+      $('#gateMsg').textContent = 'Verifica in corso…';
+      try {
+        const res = await rpc('get_state', {}, p);
+        // con la password visitatore non si entra come admin (il contrario invece è permesso)
+        if (want === 'admin' && res.role !== 'admin') { $('#gateMsg').textContent = 'Password errata'; return; }
+        pwd = p; role = want; sessionStorage.setItem('calcio8_pwd', p); sessionStorage.setItem('calcio8_role', want);
+        applyState(res); $('#gateMsg').textContent = ''; setSync('sincronizzato'); applyRole();
+        toast(want === 'admin' ? 'Accesso admin effettuato' : 'Benvenuto!');
+      } catch (e) { $('#gateMsg').textContent = e.auth ? 'Password errata' : 'Errore: ' + e.message; }
+    }
+    function logout() {
+      pwd = ''; role = ''; sessionStorage.removeItem('calcio8_pwd'); sessionStorage.removeItem('calcio8_role');
+      players = []; matches = []; picked = null; applyRole();
+    }
     function applyRole() {
+      const logged = !!role;
+      document.body.classList.toggle('gated', !logged);
       document.body.classList.toggle('readonly', !isAdmin());
-      const b = $('#btnLogin'); b.style.display = REMOTE ? '' : 'none';
-      b.textContent = adminPwd ? '✓ Admin · Esci' : '🔒 Admin'; b.onclick = adminPwd ? logout : login;
-      $('#btnRefresh').style.display = REMOTE ? '' : 'none';
-      renderPlayers();
+      document.body.classList.toggle('visitor', role === 'visitor');
+      const b = $('#btnLogout'); b.style.display = '';
+      b.textContent = role === 'admin' ? '✓ Admin · Esci' : '👤 Visitatore · Esci';
+      $('#btnRefresh').style.display = '';
+      if (logged) { showTab('dashboard'); renderAll(); }
     }
+    function renderAll() { renderPlayers(); renderTeams(); renderDashboard(); }
     async function init() {
-      if (REMOTE) { setSync('caricamento…'); await refresh(); }
-      else { try { const s = JSON.parse(localStorage.getItem(STORAGE_KEY)); if (s && s.players) state = s; } catch (e) { } setSync(''); }
-      applyRole(); renderTeams();
+      if (!CONFIG.SUPABASE_URL || !CONFIG.SUPABASE_ANON_KEY) { $('#gateMsg').textContent = 'Configura SUPABASE_URL e SUPABASE_ANON_KEY nel file'; return; }
+      if (role) await reload();
+      applyRole();
     }
 
-    /* Statistiche derivate dallo storico partite (punti, presenze) */
+    /* Statistiche derivate dalle partite giocate (punti, presenze) */
     function computeStats() {
       const st = {};
-      for (const p of state.players) st[p.id] = { pts: 0, pg: 0, v: 0, n: 0, p: 0 };
+      for (const p of players) st[p.id] = { pts: 0, pg: 0, v: 0, n: 0, p: 0 };
       let totPts = 0, totPg = 0;
-      for (const m of state.matches) {
+      for (const m of playedMatches()) {
         const resA = m.golA > m.golB ? 3 : m.golA === m.golB ? 1 : 0;
         const resB = m.golB > m.golA ? 3 : m.golA === m.golB ? 1 : 0;
-        for (const [team, res] of [[m.teamA, resA], [m.teamB, resB]]) {
+        for (const [team, res] of [[m.A, resA], [m.B, resB]]) {
           for (const s of team) {
             const x = st[s.id]; if (!x) continue;
             x.pts += res; x.pg++; if (res === 3) x.v++; else if (res === 1) x.n++; else x.p++;
@@ -778,101 +903,88 @@
     /* ===================== UI ===================== */
     const $ = s => document.querySelector(s);
     function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2200); }
+    $('#gateVisitor').onclick = () => login('visitor');
+    $('#gateAdmin').onclick = () => login('admin');
+    $('#btnLogout').onclick = logout;
 
     document.querySelectorAll('nav button').forEach(b => b.onclick = () => showTab(b.dataset.tab));
     function showTab(id) {
       document.querySelectorAll('nav button').forEach(b => b.classList.toggle('active', b.dataset.tab === id));
       document.querySelectorAll('main section').forEach(s => s.classList.toggle('active', s.id === id));
-      if (id === 'storico') renderStorico(); if (id === 'squadre') renderTeams();
+      if (id === 'dashboard') renderDashboard(); if (id === 'squadre') renderTeams();
     }
+    function matchLabel(m) { return `${fmtDate(m.date)}${m.time ? ' · ' + esc(m.time) : ''}${m.field ? ' · 📍 ' + esc(m.field) : ''}`; }
+    function fillFieldList() { $('#fieldList').innerHTML = [...new Set(matches.map(m => m.field).filter(Boolean))].map(f => `<option value="${esc(f)}">`).join(''); }
 
     /* --- Giocatori --- */
     function renderPlayers() {
       const stats = computeStats();
       const list = $('#playerList'); list.innerHTML = '';
-      if (!state.players.length) list.innerHTML = '<div class="muted">Nessun giocatore. Aggiungine uno qui sotto o importa il CSV del modulo (solo admin).</div>';
-      const sorted = state.players.slice().sort((a, b) => a.nick.localeCompare(b.nick, 'it', { sensitivity: 'base' }));
+      const act = activePlayers();
+      if (!act.length) list.innerHTML = '<div class="muted">Nessun giocatore nella tabella players.</div>';
+      const sorted = act.sort((a, b) => a.nick.localeCompare(b.nick, 'it', { sensitivity: 'base' }));
       for (const p of sorted) {
-        const sel = state.selected.includes(p.id);
+        const sel = selected.includes(p.id);
         const el = document.createElement('label'); el.className = 'pl' + (sel ? ' sel' : '');
         el.innerHTML = `<input type="checkbox" ${sel ? 'checked' : ''} ${isAdmin() ? '' : 'disabled'}>
       <div><div class="nick">${esc(p.nick)}</div><div class="roles">${esc((p.nome + ' ' + p.cognome).trim())} · ${p.roles.join(' / ')}</div></div>
       <div class="pts" title="Rating (media punti/partita)">${stats[p.id].rating.toFixed(2)}</div>
       <button class="del admin-only" title="Elimina">×</button>`;
         el.querySelector('input').onchange = e => {
-          if (e.target.checked) { if (state.selected.length >= 16) { e.target.checked = false; toast('Hai già selezionato 16 giocatori'); return; } state.selected.push(p.id); }
-          else state.selected = state.selected.filter(x => x !== p.id);
-          save(); renderPlayers();
+          if (e.target.checked) { if (selected.length >= 16) { e.target.checked = false; toast('Hai già selezionato 16 giocatori'); return; } selected.push(p.id); }
+          else selected = selected.filter(x => x !== p.id);
+          saveSel(); renderPlayers();
         };
-        el.querySelector('.del').onclick = e => { e.preventDefault(); if (confirm(`Eliminare ${p.nick}? Resta nello storico delle partite già giocate.`)) { state.players = state.players.filter(x => x !== p); state.selected = state.selected.filter(x => x !== p.id); save(); renderPlayers(); } };
+        el.querySelector('.del').onclick = e => { e.preventDefault(); deletePlayer(p); };
         list.appendChild(el);
       }
-      $('#selCount').textContent = state.selected.length;
-      $('#btnGenerate').disabled = state.selected.length !== 16;
+      $('#selCount').textContent = selected.length;
+      const n = nextMatch();
+      $('#btnGenerate').disabled = selected.length !== 16 || !n;
+      $('#genHint').textContent = n ? `Le squadre verranno salvate per la partita del ${fmtDate(n.date)}.` : 'Per generare le squadre imposta prima la prossima partita nella Dashboard.';
     }
-    $('#btnClearSel').onclick = () => { state.selected = []; save(); renderPlayers(); };
-    $('#btnGenerate').onclick = () => { if (doGenerate()) showTab('squadre'); };
-    $('#btnRegen').onclick = () => { if (doGenerate()) { renderTeams(); toast('Nuova variante generata'); } };
-    function doGenerate() {
-      const players = state.selected.map(byId).filter(Boolean);
-      if (players.length !== 16) { toast('Servono esattamente 16 giocatori'); return false; }
-      const r = generateTeams(players, computeStats());
-      state.current = { A: r.A, B: r.B }; picked = null; save(); return true;
+    $('#btnClearSel').onclick = () => { selected = []; saveSel(); renderPlayers(); };
+    $('#btnGenerate').onclick = async () => { if (await doGenerate()) showTab('squadre'); };
+    $('#btnRegen').onclick = async () => { await doGenerate('Nuova variante generata'); };
+    async function doGenerate(msg) {
+      if (!nextMatch()) { toast('Imposta prima la prossima partita nella Dashboard'); return false; }
+      const ps = selected.map(byId).filter(Boolean);
+      if (ps.length !== 16) { toast('Servono esattamente 16 giocatori'); return false; }
+      const r = generateTeams(ps, computeStats());
+      picked = null;
+      return saveLineup(r.A, r.B, msg);
+    }
+    // Salva le formazioni della prossima partita: 16 righe {player_id, team, role}
+    function saveLineup(A, B, msg) {
+      const lineup = [...A.map(s => ({ player_id: s.id, team: 'A', role: s.role })), ...B.map(s => ({ player_id: s.id, team: 'B', role: s.role }))];
+      return action('set_lineup', { p_lineup: lineup }, msg);
     }
 
     for (const id of ['#nR1', '#nR2', '#nR3']) $(id).innerHTML = ROLES.map(r => `<option>${r}</option>`).join('');
-    $('#btnAdd').onclick = () => {
+    $('#btnAdd').onclick = async () => {
       const nick = $('#nNick').value.trim(); if (!nick) { toast('Nickname obbligatorio'); return; }
-      if (state.players.some(p => p.nick.toLowerCase() === nick.toLowerCase())) { toast('Nickname già esistente'); return; }
-      state.players.push({ id: 'p' + Date.now(), nome: $('#nNome').value.trim(), cognome: $('#nCognome').value.trim(), nick, roles: [$('#nR1').value, $('#nR2').value, $('#nR3').value] });
-      $('#nNome').value = $('#nCognome').value = $('#nNick').value = ''; save(); renderPlayers(); toast('Giocatore aggiunto');
+      if (activePlayers().some(p => p.nick.toLowerCase() === nick.toLowerCase())) { toast('Nickname già esistente'); return; }
+      const ok = await action('add_player', { p_nome: $('#nNome').value.trim(), p_cognome: $('#nCognome').value.trim(), p_nick: nick, p_roles: [$('#nR1').value, $('#nR2').value, $('#nR3').value] }, 'Giocatore aggiunto');
+      if (ok) $('#nNome').value = $('#nCognome').value = $('#nNick').value = '';
     };
-
-    /* --- Import CSV (export Google Form) --- */
-    function parseCsv(text) {
-      const rows = []; let row = [], cell = '', q = false;
-      for (let i = 0; i < text.length; i++) {
-        const c = text[i];
-        if (q) { if (c === '"') { if (text[i + 1] === '"') { cell += '"'; i++; } else q = false; } else cell += c; }
-        else if (c === '"') q = true;
-        else if (c === ',') { row.push(cell); cell = ''; }
-        else if (c === '\n' || c === '\r') { if (c === '\r' && text[i + 1] === '\n') i++; row.push(cell); rows.push(row); row = []; cell = ''; }
-        else cell += c;
-      }
-      if (cell !== '' || row.length) { row.push(cell); rows.push(row); }
-      return rows.filter(r => r.some(x => x.trim() !== ''));
+    async function deletePlayer(p) {
+      if (!confirm(`Eliminare ${p.nick}? Se ha già giocato resta nello storico delle partite.`)) return;
+      selected = selected.filter(x => x !== p.id); saveSel();
+      await action('delete_player', { p_id: p.id }, 'Giocatore eliminato');
     }
-    function importCsv(text) {
-      const rows = parseCsv(text.replace(/^\uFEFF/, ''));
-      if (rows.length < 2) { toast('CSV vuoto'); return; }
-      const h = rows[0].map(x => x.toLowerCase());
-      const col = (...keys) => h.findIndex(x => keys.every(k => x.includes(k)));
-      const iNome = col('nome'), iCog = col('cognome'), iNick = col('nick'), iR1 = col('prima'), iR2 = col('seconda'), iR3 = col('terza');
-      if (iNick < 0 || iR1 < 0) { toast('Intestazioni CSV non riconosciute (servono Nickname e Ruolo Prima Scelta)'); return; }
-      let added = 0, skipped = 0, bad = 0;
-      const norm = r => { r = (r || '').trim().toUpperCase(); return ROLES.includes(r) ? r : null; };
-      for (const r of rows.slice(1)) {
-        const nick = (r[iNick] || '').trim(); if (!nick) { bad++; continue; }
-        if (state.players.some(p => p.nick.toLowerCase() === nick.toLowerCase())) { skipped++; continue; }
-        const r1 = norm(r[iR1]); if (!r1) { bad++; continue; }
-        const roles = [r1, norm(r[iR2]) || r1, norm(r[iR3]) || norm(r[iR2]) || r1];
-        state.players.push({ id: 'p' + Date.now() + '_' + added, nome: iNome >= 0 ? (r[iNome] || '').trim() : '', cognome: iCog >= 0 ? (r[iCog] || '').trim() : '', nick, roles });
-        added++;
-      }
-      save(); renderPlayers();
-      toast(`Importati ${added} giocatori` + (skipped ? `, ${skipped} già presenti` : '') + (bad ? `, ${bad} righe scartate` : ''));
-    }
-    $('#btnCsv').onclick = () => $('#fileCsv').click();
-    $('#fileCsv').onchange = e => { const f = e.target.files[0]; if (!f) return; const r = new FileReader(); r.onload = () => importCsv(r.result); r.readAsText(f, 'utf-8'); e.target.value = ''; };
 
     /* --- Squadre --- */
     let picked = null; // {team:'A'|'B', id}
     function renderTeams() {
-      const cur = state.current; const has = !!cur;
-      $('#noTeams').style.display = has ? 'none' : 'block'; $('#teamsWrap').style.display = has ? 'block' : 'none';
-      if (!has) return;
-      if (!$('#mDate').value) $('#mDate').value = new Date().toISOString().slice(0, 10);
-      $('#fieldList').innerHTML = [...new Set(state.matches.map(m => m.field).filter(Boolean))].map(f => `<option value="${esc(f)}">`).join('');
+      const n = nextMatch(), cur = currentLineup();
+      $('#noTeams').style.display = cur ? 'none' : 'block'; $('#teamsWrap').style.display = cur ? 'block' : 'none';
+      if (!cur) {
+        $('#noTeams').innerHTML = !n ? 'Nessuna prossima partita. ' + (isAdmin() ? 'Impostala nella <b>Dashboard</b>, poi seleziona i 16 presenti in <b>Giocatori</b> e premi <b>Genera squadre</b>.' : 'Le squadre compariranno qui quando saranno pronte.')
+          : `Partita del <b>${matchLabel(n)}</b>: squadre non ancora generate.` + (isAdmin() ? ' Vai in <b>Giocatori</b>, seleziona i 16 presenti e premi <b>Genera squadre</b>.' : '');
+        return;
+      }
+      $('#teamsMatch').innerHTML = `<b>Partita del ${matchLabel(n)}</b>`;
+      if (isAdmin()) { $('#mDate').value = n.date; $('#mTime').value = n.time; $('#mField').value = n.field; fillFieldList(); }
       const stats = computeStats();
       let off = 0;
       for (const t of ['A', 'B']) {
@@ -912,58 +1024,69 @@
       if (!picked) { picked = { team, id }; renderTeams(); return; }
       if (picked.team === team) { picked = picked.id === id ? null : { team, id }; renderTeams(); return; }
       // scambio tra squadre e riassegnazione ruoli
-      const stats = computeStats();
-      const idsA = state.current.A.map(s => s.id), idsB = state.current.B.map(s => s.id);
+      const cur = currentLineup(), stats = computeStats();
+      const idsA = cur.A.map(s => s.id), idsB = cur.B.map(s => s.id);
       const a = picked.team === 'A' ? picked.id : id, b = picked.team === 'B' ? picked.id : id;
       const newA = idsA.map(x => x === a ? b : x), newB = idsB.map(x => x === b ? a : x);
-      state.current = { A: assignTeam(newA.map(byId), stats).lineup, B: assignTeam(newB.map(byId), stats).lineup };
-      picked = null; save(); renderTeams(); toast('Scambio effettuato');
+      picked = null;
+      saveLineup(assignTeam(newA.map(byId), stats).lineup, assignTeam(newB.map(byId), stats).lineup, 'Scambio effettuato');
     }
-    $('#btnSave').onclick = () => {
+    $('#btnSave').onclick = async () => {
+      const n = nextMatch(); if (!n) return;
       const golA = parseInt($('#golA').value, 10), golB = parseInt($('#golB').value, 10);
       if (isNaN(golA) || isNaN(golB) || golA < 0 || golB < 0) { toast('Inserisci un risultato valido'); return; }
-      const date = $('#mDate').value || new Date().toISOString().slice(0, 10);
-      const field = $('#mField').value.trim();
+      const date = $('#mDate').value || n.date, time = $('#mTime').value || null, field = $('#mField').value.trim();
       if (!confirm(`Salvare la partita del ${fmtDate(date)}${field ? ' a ' + field : ''}: A ${golA} – ${golB} B?`)) return;
-      state.matches.push({ date, field, teamA: state.current.A, teamB: state.current.B, golA, golB });
-      state.current = null; state.selected = []; $('#golA').value = $('#golB').value = 0; $('#mField').value = ''; save();
-      toast('Partita salvata'); showTab('storico'); renderPlayers();
+      const ok = await action('save_result', { p_match_id: n.id, p_gol_a: golA, p_gol_b: golB, p_date: date, p_time: time, p_field: field }, 'Partita salvata');
+      if (ok) { selected = []; saveSel(); $('#golA').value = $('#golB').value = 0; renderPlayers(); showTab('dashboard'); }
     };
 
-    /* --- Storico --- */
-    function renderStorico() {
+    /* --- Dashboard: prossima partita, classifica, partite --- */
+    function renderNext() {
+      const n = nextMatch(), c = $('#nextCard'), today = todayStr();
+      if (!n) {
+        c.innerHTML = '<div class="lbl">Prossima partita</div><div class="none">Nessuna partita in programma</div>';
+      } else {
+        const days = Math.round((new Date(n.date + 'T12:00:00') - new Date(today + 'T12:00:00')) / 864e5);
+        const when = days < 0 ? 'da registrare' : days === 0 ? 'oggi' : days === 1 ? 'domani' : `tra ${days} giorni`;
+        const teams = n.A.length === 8 ? '<div><b>Squadre</b>pronte ✓</div>' : '';
+        c.innerHTML = `<div class="lbl">Prossima partita · ${when}</div><div class="big">${fmtDateLong(n.date)}</div>
+        <div class="meta"><div><b>Ora</b>${n.time ? esc(n.time) : '–'}</div><div><b>Campo</b>${n.field ? esc(n.field) : '–'}</div>${teams}</div>`;
+      }
+      if (isAdmin()) { $('#nxDate').value = n ? n.date : ''; $('#nxTime').value = n ? n.time : ''; $('#nxField').value = n ? n.field : ''; }
+    }
+    $('#btnNextSave').onclick = () => {
+      const date = $('#nxDate').value; if (!date) { toast('Inserisci la data'); return; }
+      action('set_next_match', { p_date: date, p_time: $('#nxTime').value || null, p_field: $('#nxField').value.trim() }, 'Prossima partita salvata');
+    };
+    $('#btnNextClear').onclick = () => {
+      const n = nextMatch(); if (!n) return;
+      if (confirm('Rimuovere la prossima partita' + (n.A.length ? ' e le sue squadre' : '') + '?')) action('delete_next_match', {}, 'Prossima partita rimossa');
+    };
+
+    function renderDashboard() {
+      renderNext(); fillFieldList();
       const stats = computeStats();
-      const rows = state.players.map(p => ({ p, s: stats[p.id] })).sort((a, b) => b.s.rating - a.s.rating || b.s.ppg - a.s.ppg || b.s.pts - a.s.pts || a.p.nick.localeCompare(b.p.nick));
-      $('#standings tbody').innerHTML = rows.map((r, i) => `<tr><td>${i + 1}</td><td><b>${esc(r.p.nick)}</b></td><td class="num">${r.s.pg}</td><td class="num">${r.s.v}</td><td class="num">${r.s.n}</td><td class="num">${r.s.p}</td><td class="num">${r.s.pts}</td><td class="num">${r.s.pg ? r.s.ppg.toFixed(2) : '–'}</td><td class="num"><b>${r.s.rating.toFixed(2)}</b></td></tr>`).join('');
-      const m = $('#matches');
-      if (!state.matches.length) { m.innerHTML = '<div class="muted">Nessuna partita registrata.</div>'; return; }
-      const nick = id => { const p = byId(id); return p ? p.nick : '(eliminato)'; };
-      const fmt = team => PITCH_ROWS.flat().map(r => { const s = team.find(x => x.role === r); return `<span class="badge">${r} ${esc(nick(s.id))}</span>`; }).join(' ');
-      const ordered = state.matches.map((x, idx) => ({ x, idx })).sort((a, b) => String(b.x.date).localeCompare(String(a.x.date)) || b.idx - a.idx);
-      m.innerHTML = ordered.map(({ x, idx }) => {
-        return `<div class="match"><div class="hdr"><span class="muted">📅 ${fmtDate(x.date)}${x.field ? ' · 📍 ' + esc(x.field) : ''}</span><span class="score"><span class="cA">A</span> ${x.golA} – ${x.golB} <span class="cB">B</span></span><button class="danger admin-only" data-del="${idx}">Elimina</button></div>
-      <div class="lineups"><div>${fmt(x.teamA)}</div><div>${fmt(x.teamB)}</div></div></div>`;
-      }).join('');
-      m.querySelectorAll('[data-del]').forEach(b => b.onclick = () => { if (confirm('Eliminare questa partita? I punti verranno ricalcolati.')) { state.matches.splice(+b.dataset.del, 1); save(); renderStorico(); renderPlayers(); } });
+      const rows = activePlayers().map(p => ({ p, s: stats[p.id] })).sort((a, b) => b.s.rating - a.s.rating || b.s.ppg - a.s.ppg || b.s.pts - a.s.pts || a.p.nick.localeCompare(b.p.nick));
+      $('#standings tbody').innerHTML = rows.map((r, i) => `<tr><td>${i + 1}</td><td><b>${esc(r.p.nick)}</b></td><td class="num">${r.s.pg}</td><td class="num">${r.s.v}</td><td class="num">${r.s.n}</td><td class="num">${r.s.p}</td><td class="num">${r.s.pts}</td><td class="num">${r.s.pg ? r.s.ppg.toFixed(2) : '–'}</td><td class="num"><b>${r.s.rating.toFixed(2)}</b></td></tr>`).join('')
+        || '<tr><td colspan="9" class="muted">Nessun giocatore.</td></tr>';
+      const m = $('#matches'), pm = playedMatches();
+      if (!pm.length) { m.innerHTML = '<div class="muted">Nessuna partita registrata.</div>'; return; }
+      const nick = id => { const p = byId(id); return p ? p.nick : '?'; };
+      const fmt = team => PITCH_ROWS.flat().map(r => { const s = team.find(x => x.role === r); return s ? `<span class="badge">${r} ${esc(nick(s.id))}</span>` : ''; }).join(' ');
+      m.innerHTML = pm.map(x => `<div class="match"><div class="hdr"><span class="muted">📅 ${matchLabel(x)}</span><span class="score"><span class="cA">A</span> ${x.golA} – ${x.golB} <span class="cB">B</span></span><button class="danger admin-only" data-del="${x.id}">Elimina</button></div>
+      <div class="lineups"><div>${fmt(x.A)}</div><div>${fmt(x.B)}</div></div></div>`).join('');
+      m.querySelectorAll('[data-del]').forEach(b => b.onclick = () => { if (confirm('Eliminare questa partita? I punti verranno ricalcolati.')) action('delete_match', { p_id: +b.dataset.del }, 'Partita eliminata'); });
     }
 
-    /* --- Backup --- */
-    $('#btnExport').onclick = () => {
-      const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
-      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'calcio8_backup_' + new Date().toISOString().slice(0, 10) + '.json'; a.click();
-    };
-    $('#btnImport').onclick = () => $('#fileImport').click();
-    $('#fileImport').onchange = e => {
-      const f = e.target.files[0]; if (!f) return;
-      const r = new FileReader(); r.onload = () => { try { const s = JSON.parse(r.result); if (!s.players || !s.matches) throw 0; state = s; save(); renderPlayers(); renderTeams(); toast('Backup importato'); } catch (_) { toast('File non valido'); } }; r.readAsText(f); e.target.value = '';
-    };
-    $('#btnReset').onclick = () => { if (confirm('Cancellare TUTTO (giocatori, storico, punti) e ripartire dalla lista iniziale?')) { state = defaultState(); save(); renderPlayers(); renderTeams(); toast('Reset eseguito'); } };
-
+    // data di oggi in ora locale (toISOString userebbe UTC: sbagliata vicino a mezzanotte)
+    function todayStr() { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
     function fmtDate(d) { const dt = new Date(String(d).length === 10 ? d + 'T12:00:00' : d); return isNaN(dt) ? String(d) : dt.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' }); }
+    function fmtDateLong(d) { const dt = new Date(d + 'T12:00:00'); return isNaN(dt) ? String(d) : dt.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' }); }
     function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 
-    $('#btnRefresh').onclick = () => { refresh(); toast('Dati aggiornati'); };
-    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && REMOTE && !saveTimer) refresh(); });
+    $('#btnRefresh').onclick = async () => { await reload(); toast('Dati aggiornati'); };
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && role) reload(); });
     init();
   </script>
 </body>
