@@ -13,8 +13,8 @@
       --muted: #6b7684;
       --border: #dde3ea;
       --accent: #1f6feb;
-      --a: #2563eb;
-      --b: #dc2626;
+      --a: #ffffff;
+      --b: #111111;
       --pitch: #3f9a4c;
       --pitch2: #47a655;
       --warn: #d97706;
@@ -28,8 +28,8 @@
         --muted: #95a1af;
         --border: #2a3440;
         --accent: #4c8dff;
-        --a: #3b82f6;
-        --b: #ef4444;
+        --a: #f3f4f6;
+        --b: #000000;
         --pitch: #2f7a3b;
         --pitch2: #357f42;
       }
@@ -273,11 +273,14 @@
     }
 
     .team.A h2 {
-      background: var(--a)
+      background: var(--a);
+      color: #111;
+      border-bottom: 1px solid var(--border)
     }
 
     .team.B h2 {
-      background: var(--b)
+      background: var(--b);
+      color: #fff
     }
 
     .pitch {
@@ -409,14 +412,27 @@
       }
     }
 
+    /* etichette maglia: Bianca / Nera */
+    .cA,
+    .cB {
+      display: inline-block;
+      padding: 2px 9px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      border: 1px solid var(--border);
+      vertical-align: middle
+    }
+
     .cA {
-      color: var(--a);
-      font-weight: 700
+      background: #fff;
+      color: #111
     }
 
     .cB {
-      color: var(--b);
-      font-weight: 700
+      background: #111;
+      color: #fff;
+      border-color: #111
     }
 
     body.readonly .admin-only {
@@ -455,8 +471,8 @@
       display: none
     }
 
-    /* Il visitatore vede solo la dashboard */
-    body.visitor nav {
+    /* Il visitatore vede Dashboard e Squadre, non la gestione giocatori */
+    body.visitor nav [data-tab="giocatori"] {
       display: none
     }
 
@@ -634,8 +650,8 @@
         <div class="card row">
           <div class="grow" id="teamsMatch"></div>
           <div class="stat">
-            <div><span class="muted">Forza A</span><b id="strA">0</b></div>
-            <div><span class="muted">Forza B</span><b id="strB">0</b></div>
+            <div><span class="muted">Forza bianca</span><b id="strA">0</b></div>
+            <div><span class="muted">Forza nera</span><b id="strB">0</b></div>
             <div><span class="muted">Fuori 1ª scelta</span><b id="offRole">0</b></div>
           </div>
           <div class="muted" style="flex-basis:100%">Forza = somma dei rating (media punti/partita, stabilizzata per chi
@@ -646,12 +662,12 @@
           squadra e poi uno dell'altra. I ruoli vengono riassegnati automaticamente.</div>
         <div class="teams">
           <div class="team A">
-            <h2><span>Squadra A</span><span id="hA"></span></h2>
+            <h2><span>⚪ Maglia bianca</span><span id="hA"></span></h2>
             <div class="pitch" id="pitchA"></div>
             <div class="rot" id="rotA"></div>
           </div>
           <div class="team B">
-            <h2><span>Squadra B</span><span id="hB"></span></h2>
+            <h2><span>⚫ Maglia nera</span><span id="hB"></span></h2>
             <div class="pitch" id="pitchB"></div>
             <div class="rot" id="rotB"></div>
           </div>
@@ -666,9 +682,9 @@
                 style="width:200px"></label>
           </div>
           <div class="row res" style="margin-top:8px">
-            <span class="cA">A</span><input type="number" id="golA" min="0" value="0">
+            <span class="cA">⚪ Bianca</span><input type="number" id="golA" min="0" value="0">
             <span>–</span>
-            <input type="number" id="golB" min="0" value="0"><span class="cB">B</span>
+            <input type="number" id="golB" min="0" value="0"><span class="cB">⚫ Nera</span>
             <div class="grow"></div>
             <button class="primary" id="btnSave">Salva partita</button>
           </div>
@@ -979,7 +995,7 @@
       const n = nextMatch(), cur = currentLineup();
       $('#noTeams').style.display = cur ? 'none' : 'block'; $('#teamsWrap').style.display = cur ? 'block' : 'none';
       if (!cur) {
-        $('#noTeams').innerHTML = !n ? 'Nessuna prossima partita. ' + (isAdmin() ? 'Impostala nella <b>Dashboard</b>, poi seleziona i 16 presenti in <b>Giocatori</b> e premi <b>Genera squadre</b>.' : 'Le squadre compariranno qui quando saranno pronte.')
+        $('#noTeams').innerHTML = !n ? 'Nessuna prossima partita. ' + (isAdmin() ? 'Impostala nella <b>Dashboard</b>, poi seleziona i 16 presenti in <b>Giocatori</b> e premi <b>Genera squadre</b>.' : 'Le squadre (maglia bianca ⚪ e maglia nera ⚫) compariranno qui quando saranno pronte.')
           : `Partita del <b>${matchLabel(n)}</b>: squadre non ancora generate.` + (isAdmin() ? ' Vai in <b>Giocatori</b>, seleziona i 16 presenti e premi <b>Genera squadre</b>.' : '');
         return;
       }
@@ -1036,7 +1052,7 @@
       const golA = parseInt($('#golA').value, 10), golB = parseInt($('#golB').value, 10);
       if (isNaN(golA) || isNaN(golB) || golA < 0 || golB < 0) { toast('Inserisci un risultato valido'); return; }
       const date = $('#mDate').value || n.date, time = $('#mTime').value || null, field = $('#mField').value.trim();
-      if (!confirm(`Salvare la partita del ${fmtDate(date)}${field ? ' a ' + field : ''}: A ${golA} – ${golB} B?`)) return;
+      if (!confirm(`Salvare la partita del ${fmtDate(date)}${field ? ' a ' + field : ''}: Bianca ${golA} – ${golB} Nera?`)) return;
       const ok = await action('save_result', { p_match_id: n.id, p_gol_a: golA, p_gol_b: golB, p_date: date, p_time: time, p_field: field }, 'Partita salvata');
       if (ok) { selected = []; saveSel(); $('#golA').value = $('#golB').value = 0; renderPlayers(); showTab('dashboard'); }
     };
@@ -1049,9 +1065,10 @@
       } else {
         const days = Math.round((new Date(n.date + 'T12:00:00') - new Date(today + 'T12:00:00')) / 864e5);
         const when = days < 0 ? 'da registrare' : days === 0 ? 'oggi' : days === 1 ? 'domani' : `tra ${days} giorni`;
-        const teams = n.A.length === 8 ? '<div><b>Squadre</b>pronte ✓</div>' : '';
+        const teams = n.A.length === 8 ? '<div><b>Squadre</b><a href="#" id="goTeams" style="color:inherit">pronte, guarda ⚪⚫ →</a></div>' : '';
         c.innerHTML = `<div class="lbl">Prossima partita · ${when}</div><div class="big">${fmtDateLong(n.date)}</div>
         <div class="meta"><div><b>Ora</b>${n.time ? esc(n.time) : '–'}</div><div><b>Campo</b>${n.field ? esc(n.field) : '–'}</div>${teams}</div>`;
+        const g = $('#goTeams'); if (g) g.onclick = e => { e.preventDefault(); showTab('squadre'); };
       }
       if (isAdmin()) { $('#nxDate').value = n ? n.date : ''; $('#nxTime').value = n ? n.time : ''; $('#nxField').value = n ? n.field : ''; }
     }
@@ -1074,7 +1091,7 @@
       if (!pm.length) { m.innerHTML = '<div class="muted">Nessuna partita registrata.</div>'; return; }
       const nick = id => { const p = byId(id); return p ? p.nick : '?'; };
       const fmt = team => PITCH_ROWS.flat().map(r => { const s = team.find(x => x.role === r); return s ? `<span class="badge">${r} ${esc(nick(s.id))}</span>` : ''; }).join(' ');
-      m.innerHTML = pm.map(x => `<div class="match"><div class="hdr"><span class="muted">📅 ${matchLabel(x)}</span><span class="score"><span class="cA">A</span> ${x.golA} – ${x.golB} <span class="cB">B</span></span><button class="danger admin-only" data-del="${x.id}">Elimina</button></div>
+      m.innerHTML = pm.map(x => `<div class="match"><div class="hdr"><span class="muted">📅 ${matchLabel(x)}</span><span class="score"><span class="cA">⚪ Bianca</span> ${x.golA} – ${x.golB} <span class="cB">⚫ Nera</span></span><button class="danger admin-only" data-del="${x.id}">Elimina</button></div>
       <div class="lineups"><div>${fmt(x.A)}</div><div>${fmt(x.B)}</div></div></div>`).join('');
       m.querySelectorAll('[data-del]').forEach(b => b.onclick = () => { if (confirm('Eliminare questa partita? I punti verranno ricalcolati.')) action('delete_match', { p_id: +b.dataset.del }, 'Partita eliminata'); });
     }
