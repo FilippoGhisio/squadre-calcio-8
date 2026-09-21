@@ -733,10 +733,23 @@
     const currentLineup = () => { const n = nextMatch(); return n && n.A.length === 8 && n.B.length === 8 ? { A: n.A, B: n.B } : null; };
 
     /* --- Supabase (REST diretto, nessuna libreria) --- */
+    // Riprova da sola (3 tentativi) su errori di rete o server momentaneamente non disponibile (5xx):
+    // tipico del telefono che cambia rete o di una richiesta persa. Gli altri errori escono subito.
+    const sleep = ms => new Promise(res => setTimeout(res, ms));
     async function sb(path, opt = {}) {
-      const r = await fetch(CONFIG.SUPABASE_URL + path, { ...opt, headers: { 'apikey': CONFIG.SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + CONFIG.SUPABASE_ANON_KEY, 'Content-Type': 'application/json', ...(opt.headers || {}) } });
-      if (!r.ok) throw new Error('HTTP ' + r.status + ' ' + (await r.text()));
-      return r.status === 204 ? null : r.json();
+      const TRIES = 3;
+      for (let i = 1; ; i++) {
+        let r;
+        try {
+          r = await fetch(CONFIG.SUPABASE_URL + path, { ...opt, cache: 'no-store', headers: { 'apikey': CONFIG.SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + CONFIG.SUPABASE_ANON_KEY, 'Content-Type': 'application/json', ...(opt.headers || {}) } });
+        } catch (e) {
+          if (i < TRIES) { setSync(`server non raggiungibile, riprovo (${i}/${TRIES - 1})…`); await sleep(800 * i); continue; }
+          throw new Error('server non raggiungibile, controlla la connessione');
+        }
+        if (r.status >= 500 && i < TRIES) { setSync(`server non disponibile, riprovo (${i}/${TRIES - 1})…`); await sleep(800 * i); continue; }
+        if (!r.ok) throw new Error('HTTP ' + r.status + ' ' + (await r.text()));
+        return r.status === 204 ? null : r.json();
+      }
     }
     // Chiama una funzione RPC con la password corrente. {error:'auth'} → logout.
     async function rpc(fn, body = {}, p = pwd) {
@@ -777,7 +790,7 @@
       }
       await reload(); if (okMsg) toast(okMsg); return true;
     }
-    function setSync(t) { $('#syncStatus').textContent = '☁ ' + t; }
+    function setSync(t) { $('#syncStatus').textContent = '☁ ' + t; if (document.body.classList.contains('gated')) $('#gateMsg').textContent = t; }
 
     /* --- Accesso --- */
     async function login(want) {
