@@ -471,6 +471,56 @@
       display: none
     }
 
+    /* --- Registrazione nuovo giocatore (senza password) --- */
+    #reg {
+      display: none;
+      min-height: 100vh;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px
+    }
+
+    body.gated.regmode #gate {
+      display: none
+    }
+
+    body.gated.regmode #reg {
+      display: flex
+    }
+
+    #reg .card {
+      width: min(420px, 100%);
+      text-align: left;
+      margin: 0
+    }
+
+    #reg h2 {
+      margin: 0 0 4px;
+      font-size: 22px
+    }
+
+    #reg label {
+      display: block;
+      margin-top: 10px;
+      font-size: 13px;
+      color: var(--muted)
+    }
+
+    #reg label input,
+    #reg label select {
+      display: block;
+      width: 100%;
+      margin-top: 4px;
+      font-size: 15px;
+      color: var(--text)
+    }
+
+    #reg .ok {
+      font-size: 44px;
+      text-align: center
+    }
+
     /* Il visitatore vede Dashboard e Squadre, non la gestione giocatori */
     body.visitor nav [data-tab="giocatori"] {
       display: none
@@ -551,7 +601,38 @@
     <h1>Calcio a 8</h1>
     <button class="primary" id="gateVisitor">Accesso visitatore</button>
     <button class="ghost" id="gateAdmin">🔒 Accesso admin</button>
+    <button class="ghost" id="gateNew">➕ Nuovo giocatore</button>
     <div class="muted" id="gateMsg" style="min-height:18px"></div>
+  </div>
+
+  <!-- ============ REGISTRAZIONE NUOVO GIOCATORE (senza password) ============ -->
+  <div id="reg">
+    <div class="card" id="regForm">
+      <h2>Nuovo giocatore</h2>
+      <div class="muted">Registrati per entrare nella lista. Tutti i campi sono obbligatori.</div>
+      <label>Nome <input id="rNome" autocomplete="given-name"></label>
+      <label>Cognome <input id="rCognome" autocomplete="family-name"></label>
+      <label>Nickname <input id="rNick" autocomplete="off"></label>
+      <label>Ruolo preferito (1ª scelta) <select id="rR1"></select></label>
+      <label>2ª scelta <select id="rR2"></select></label>
+      <label>3ª scelta <select id="rR3"></select></label>
+      <div class="muted" id="regMsg" style="min-height:18px;margin-top:10px"></div>
+      <div class="row" style="margin-top:4px">
+        <button class="ghost" id="regBack">Indietro</button>
+        <div class="grow"></div>
+        <button class="primary" id="regSave">Salva</button>
+      </div>
+    </div>
+    <div class="card" id="regDone" style="display:none">
+      <div class="ok">✅</div>
+      <h2 style="text-align:center">Registrazione effettuata</h2>
+      <div style="text-align:center;margin-top:8px" id="regPwdLine"></div>
+      <div class="row" style="margin-top:16px">
+        <div class="grow"></div>
+        <button class="primary" id="regGoLogin">Vai all'accesso</button>
+        <div class="grow"></div>
+      </div>
+    </div>
   </div>
 
   <header>
@@ -714,6 +795,9 @@
     const CONFIG = {
       SUPABASE_URL: 'https://bqkuickdyrovzjbllpyv.supabase.co',
       SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJxa3VpY2tkeXJvdnpqYmxscHl2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAwMDE0MDMsImV4cCI6MjEwNTU3NzQwM30.N-rAuuJzijgq4KQtuCAIaQSyZu1oqoKeLi8D_l1kirE',
+      // Password visitatore mostrata a fine registrazione: normalmente la legge il server
+      // (register_player la restituisce). Riempi questa solo per forzare un valore fisso.
+      VISITOR_PWD: '',
     };
 
     let players = [];   // [{id, nome, cognome, nick, roles:[3], active}]  — anche gli eliminati (per lo storico)
@@ -811,6 +895,7 @@
     }
     function applyRole() {
       const logged = !!role;
+      if (logged) document.body.classList.remove('regmode');
       document.body.classList.toggle('gated', !logged);
       document.body.classList.toggle('readonly', !isAdmin());
       document.body.classList.toggle('visitor', role === 'visitor');
@@ -938,6 +1023,44 @@
     function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2200); }
     $('#gateVisitor').onclick = () => login('visitor');
     $('#gateAdmin').onclick = () => login('admin');
+
+    /* --- Registrazione nuovo giocatore: nessuna password, scrive tramite la RPC register_player --- */
+    for (const id of ['#rR1', '#rR2', '#rR3']) $(id).innerHTML = ROLES.map(r => `<option>${r}</option>`).join('');
+    function showReg() {
+      $('#regMsg').textContent = ''; $('#gateMsg').textContent = '';
+      $('#regForm').style.display = ''; $('#regDone').style.display = 'none';
+      document.body.classList.add('regmode');
+    }
+    function hideReg() { document.body.classList.remove('regmode'); }
+    $('#gateNew').onclick = showReg;
+    $('#regBack').onclick = hideReg;
+    $('#regGoLogin').onclick = hideReg;
+    $('#regSave').onclick = async () => {
+      const nome = $('#rNome').value.trim(), cognome = $('#rCognome').value.trim(), nick = $('#rNick').value.trim();
+      const roles = [$('#rR1').value, $('#rR2').value, $('#rR3').value];
+      const msg = t => $('#regMsg').textContent = t;
+      if (!nome || !cognome || !nick) { msg('Compila nome, cognome e nickname'); return; }
+      if (roles.some(r => !r)) { msg('Scegli tutti e tre i ruoli preferiti'); return; }
+      if (new Set(roles).size !== 3) { msg('I tre ruoli devono essere diversi'); return; }
+      const btn = $('#regSave'); btn.disabled = true; msg('Salvataggio…');
+      try {
+        const res = await sb('/rest/v1/rpc/register_player', { method: 'POST', body: JSON.stringify({ p_nome: nome, p_cognome: cognome, p_nick: nick, p_roles: roles }) });
+        if (!res) throw new Error('risposta vuota dal server');
+        if (res.error === 'nick_exists') { msg('Nickname già esistente, scegline un altro'); return; }
+        if (res.error) throw new Error(res.error);
+        $('#rNome').value = $('#rCognome').value = $('#rNick').value = '';
+        for (const id of ['#rR1', '#rR2', '#rR3']) $(id).value = ROLES[0];
+        msg('');
+        // la password visitatore la restituisce il server (letta dal database); CONFIG.VISITOR_PWD è solo un ripiego
+        const vp = res.visitor_pwd || CONFIG.VISITOR_PWD;
+        $('#regPwdLine').innerHTML = vp
+          ? `Puoi effettuare l'accesso visitatore con la password: <b>${esc(vp)}</b>`
+          : "Puoi effettuare l'accesso visitatore: chiedi la password a un admin.";
+        $('#regForm').style.display = 'none'; $('#regDone').style.display = '';
+        if (role) reload();   // se qualcuno è già dentro, aggiorna subito la lista
+      } catch (e) { console.error(e); msg('Errore: ' + e.message); }
+      finally { btn.disabled = false; }
+    };
     $('#btnLogout').onclick = logout;
 
     document.querySelectorAll('nav button').forEach(b => b.onclick = () => showTab(b.dataset.tab));
