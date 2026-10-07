@@ -652,9 +652,9 @@
   <div id="gate">
     <div style="font-size:56px">⚽</div>
     <h1>Calcio a 8</h1>
-    <button class="primary" id="gateVisitor">Accesso visitatore</button>
-    <button class="ghost" id="gateAdmin">🔒 Accesso admin</button>
+    <button class="primary" id="gateVisitor">Entra</button>
     <button class="ghost" id="gateNew">➕ Nuovo giocatore</button>
+    <button class="ghost" id="gateAdmin">🔒 Accesso admin</button>
     <div class="muted" id="gateMsg" style="min-height:18px"></div>
   </div>
 
@@ -716,6 +716,7 @@
           <button class="ghost admin-only" id="btnBookClear">Svuota lista</button>
         </div>
         <div id="bookMe" style="margin-top:8px"></div>
+        <div class="row admin-only" id="bookAdminAdd" style="margin-top:8px"></div>
         <div id="bookList" style="margin-top:4px"></div>
       </div>
       <div class="card admin-only">
@@ -955,15 +956,17 @@
 
     /* --- Accesso --- */
     async function login(want) {
-      const p = prompt(want === 'admin' ? 'Password admin:' : 'Password visitatore:'); if (!p) return;
-      $('#gateMsg').textContent = 'Verifica in corso…';
+      // il visitatore entra senza password; solo l'admin la chiede
+      let p = '';
+      if (want === 'admin') { p = prompt('Password admin:') || ''; if (!p) return; }
+      $('#gateMsg').textContent = want === 'admin' ? 'Verifica in corso…' : 'Caricamento…';
       try {
         const res = await rpc('get_state', {}, p);
-        // con la password visitatore non si entra come admin (il contrario invece è permesso)
         if (want === 'admin' && res.role !== 'admin') { $('#gateMsg').textContent = 'Password errata'; return; }
         pwd = p; role = want; sessionStorage.setItem('calcio8_pwd', p); sessionStorage.setItem('calcio8_role', want);
         applyState(res); $('#gateMsg').textContent = ''; setSync('sincronizzato'); applyRole();
         toast(want === 'admin' ? 'Accesso admin effettuato' : 'Benvenuto!');
+        $('#gateMsg').textContent = '';
       } catch (e) { $('#gateMsg').textContent = e.auth ? 'Password errata' : 'Errore: ' + e.message; }
     }
     function logout() {
@@ -977,7 +980,7 @@
       document.body.classList.toggle('readonly', !isAdmin());
       document.body.classList.toggle('visitor', role === 'visitor');
       const b = $('#btnLogout'); b.style.display = '';
-      b.textContent = role === 'admin' ? '✓ Admin · Esci' : '👤 Visitatore · Esci';
+      b.textContent = role === 'admin' ? '✓ Admin · Esci' : 'Esci';
       $('#btnRefresh').style.display = '';
       if (logged) { showTab('dashboard'); renderAll(); }
     }
@@ -1098,6 +1101,11 @@
     /* ===================== UI ===================== */
     const $ = s => document.querySelector(s);
     function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2200); }
+    // i campi PIN accettano solo cifre, al massimo 4
+    for (const id of ['#rPin', '#mePin']) {
+      const el = $(id); if (el) onlyDigits(el);
+    }
+    function onlyDigits(el) { el.setAttribute('inputmode', 'numeric'); el.setAttribute('pattern', '[0-9]*'); el.oninput = () => { el.value = el.value.replace(/\D/g, '').slice(0, 4); }; }
     $('#gateVisitor').onclick = () => login('visitor');
     $('#gateAdmin').onclick = () => login('admin');
 
@@ -1342,6 +1350,7 @@
           $('#meHint').textContent = !o || !o.value ? "Il PIN serve a prenotarti e a cancellarti da qualsiasi telefono. Se non l'hai mai usato, scegline uno adesso."
             : o.dataset.new ? 'Prima volta: scegli tu il PIN di 4 cifre, resterà il tuo.' : 'Inserisci il tuo PIN di 4 cifre.';
         };
+        onlyDigits($('#mePin'));
         $('#btnMeIn').onclick = playerLogin;
         $('#mePin').onkeydown = e => { if (e.key === 'Enter') playerLogin(); };
       } else {
@@ -1356,10 +1365,29 @@
         $('#btnMeOut').onclick = () => { me = null; saveMe(); renderBookings(); };
       }
 
+      // l'admin può mettere in lista chiunque, senza PIN e senza il vincolo del telefono
+      const addBox = $('#bookAdminAdd');
+      if (isAdmin()) {
+        const free = activePlayers().filter(p => !bookings.some(b => b.player_id === p.id))
+          .sort((a, b) => a.nick.localeCompare(b.nick, 'it', { sensitivity: 'base' }));
+        addBox.innerHTML = free.length
+          ? `<select id="admWho" class="grow"><option value="">Aggiungi alla lista…</option>${free.map(p => `<option value="${p.id}">${esc(p.nick)}</option>`).join('')}</select>
+             <button class="ghost" id="btnAdmAdd">Aggiungi</button>`
+          : '<span class="muted">Tutti i giocatori sono già in lista.</span>';
+        const ab = $('#btnAdmAdd');
+        if (ab) ab.onclick = () => {
+          const id = +$('#admWho').value; if (!id) { toast('Scegli un giocatore'); return; }
+          action('book_player', { p_player_id: id, p_pin: null, p_device: null }, 'Aggiunto alla lista');
+        };
+      } else addBox.innerHTML = '';
+
       // lista in ordine di arrivo: i primi 16 giocano, gli altri sono riserve
       const fmtAt = t => { const d = new Date(t); return isNaN(d) ? '' : d.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit' }) + ' ' + d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }); };
+      // più prenotazioni dallo stesso telefono: non è vietato (l'admin può farlo, o si è disdetto
+      // e riprenotato qualcun altro), ma è utile che si veda
+      const devCount = {}; for (const b of bookings) if (b.device) devCount[b.device] = (devCount[b.device] || 0) + 1;
       const rowHtml = (b, i) => `<div class="bk${mp && b.player_id === mp.id ? ' me' : ''}"><span class="nn">${i + 1 > SLOTS ? 'R' + (i + 1 - SLOTS) : i + 1}</span>
-        <span class="who">${esc(nick(b.player_id))}</span><span class="at">${fmtAt(b.at)}</span>
+        <span class="who">${esc(nick(b.player_id))}</span>${isAdmin() && devCount[b.device] > 1 ? ' <span class="badge" title="Più prenotazioni dallo stesso telefono">📱×' + devCount[b.device] + '</span>' : ''}<span class="at">${fmtAt(b.at)}</span>
         <button class="x admin-only" data-unbook="${b.player_id}" title="Togli dalla lista">×</button></div>`;
       const list = $('#bookList');
       list.innerHTML = bookings.length
