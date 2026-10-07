@@ -573,6 +573,59 @@
       font-weight: 600
     }
 
+    /* --- Prenotazioni --- */
+    .bk {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 7px 10px;
+      border-bottom: 1px solid var(--border)
+    }
+
+    .bk:last-child {
+      border-bottom: none
+    }
+
+    .bk .nn {
+      width: 26px;
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+      font-size: 13px
+    }
+
+    .bk .who {
+      font-weight: 600
+    }
+
+    .bk.me {
+      background: color-mix(in srgb, var(--accent) 10%, transparent);
+      border-radius: 8px
+    }
+
+    .bk .at {
+      margin-left: auto;
+      color: var(--muted);
+      font-size: 12px
+    }
+
+    .bk .x {
+      border: none;
+      background: none;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 16px;
+      padding: 0 4px
+    }
+
+    .bk-sep {
+      margin: 10px 0 4px;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .05em
+    }
+
     .toast {
       position: fixed;
       bottom: 18px;
@@ -653,6 +706,14 @@
     <!-- ================= DASHBOARD ================= -->
     <section id="dashboard" class="active">
       <div class="card hero" id="nextCard"></div>
+      <div class="card" id="bookCard" style="display:none">
+        <div class="row">
+          <b class="grow">Chi gioca <span class="muted" id="bookCount"></span></b>
+          <button class="ghost admin-only" id="btnBookClear">Svuota lista</button>
+        </div>
+        <div id="bookMe" style="margin-top:8px"></div>
+        <div id="bookList" style="margin-top:4px"></div>
+      </div>
       <div class="card admin-only">
         <b>Imposta prossima partita</b>
         <div class="row" style="margin-top:8px">
@@ -701,6 +762,7 @@
         <div class="row">
           <div class="grow"><b>Seleziona i 16 presenti</b> <span class="muted">· <span id="selCount">0</span>/16</span>
           </div>
+          <button class="ghost admin-only" id="btnUseBookings">Usa i prenotati</button>
           <button class="ghost admin-only" id="btnClearSel">Deseleziona tutti</button>
           <button class="primary admin-only" id="btnGenerate" disabled>Genera squadre</button>
         </div>
@@ -789,7 +851,7 @@
 
     /* ===================== CONFIGURAZIONE =====================
        URL e chiave "anon public" del progetto Supabase. Tutti i dati stanno nelle tabelle
-       players / matches / match_players (vedi supabase_setup.sql) e si leggono/scrivono SOLO
+       players / matches / match_players / bookings (vedi supabase_setup.sql) e si leggono/scrivono SOLO
        tramite le funzioni RPC: get_state (password visitatore o admin) e le funzioni di
        scrittura (solo password admin). La chiave anon da sola non può leggere nulla.        */
     const CONFIG = {
@@ -800,8 +862,13 @@
       VISITOR_PWD: '',
     };
 
+    const SLOTS = 16;   // posti in campo; dal 17° in poi si è riserva
     let players = [];   // [{id, nome, cognome, nick, roles:[3], active}]  — anche gli eliminati (per lo storico)
     let matches = [];   // [{id, date, time, field, golA, golB, played, A:[{id,role}], B:[{id,role}]}]
+    let bookings = [];  // prenotazioni alla prossima partita, in ordine di arrivo: [{player_id, device, at}]
+    // Codice casuale del dispositivo: il server lo usa per dare UNA prenotazione per browser
+    let deviceId = localStorage.getItem('calcio8_device');
+    if (!deviceId) { deviceId = 'd' + Math.random().toString(36).slice(2) + Date.now().toString(36); localStorage.setItem('calcio8_device', deviceId); }
     // Sessione: password e ruolo ('visitor' | 'admin') restano finché la scheda è aperta
     let pwd = sessionStorage.getItem('calcio8_pwd') || '', role = sessionStorage.getItem('calcio8_role') || '';
     // Selezione dei presenti: dato di lavoro dell'admin, resta solo in questo browser
@@ -850,6 +917,7 @@
     function applyState(res) {
       players = res.players || [];
       matches = (res.matches || []).map(normMatch);
+      bookings = (res.bookings || []).filter(b => byId(b.player_id));
       selected = selected.filter(id => { const p = byId(id); return p && p.active; });
     }
     async function reload() {
@@ -891,7 +959,7 @@
     }
     function logout() {
       pwd = ''; role = ''; sessionStorage.removeItem('calcio8_pwd'); sessionStorage.removeItem('calcio8_role');
-      players = []; matches = []; picked = null; applyRole();
+      players = []; matches = []; bookings = []; picked = null; applyRole();
     }
     function applyRole() {
       const logged = !!role;
@@ -1102,9 +1170,15 @@
       $('#selCount').textContent = selected.length;
       const n = nextMatch();
       $('#btnGenerate').disabled = selected.length !== 16 || !n;
-      $('#genHint').textContent = n ? `Le squadre verranno salvate per la partita del ${fmtDate(n.date)}.` : 'Per generare le squadre imposta prima la prossima partita nella Dashboard.';
+      $('#genHint').textContent = !n ? 'Per generare le squadre imposta prima la prossima partita nella Dashboard.'
+        : `Le squadre verranno salvate per la partita del ${fmtDate(n.date)}.` + (bookings.length ? ` In lista ci sono ${bookings.length} prenotati: "Usa i prenotati" seleziona i primi ${Math.min(bookings.length, SLOTS)}.` : '');
     }
     $('#btnClearSel').onclick = () => { selected = []; saveSel(); renderPlayers(); };
+    $('#btnUseBookings').onclick = () => {
+      if (!bookings.length) { toast('Nessuna prenotazione'); return; }
+      selected = bookings.slice(0, SLOTS).map(b => b.player_id).filter(id => { const p = byId(id); return p && p.active; });
+      saveSel(); renderPlayers(); toast(`Selezionati i primi ${selected.length} prenotati`);
+    };
     $('#pSearch').oninput = renderPlayers;
     function norm(t) { return String(t).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''); }
     $('#btnGenerate').onclick = async () => { if (await doGenerate()) showTab('squadre'); };
@@ -1228,8 +1302,52 @@
       if (confirm('Rimuovere la prossima partita' + (n.A.length ? ' e le sue squadre' : '') + '?')) action('delete_next_match', {}, 'Prossima partita rimossa');
     };
 
+    function renderBookings() {
+      const n = nextMatch(), card = $('#bookCard');
+      card.style.display = n ? '' : 'none'; if (!n) return;
+      const nick = id => { const p = byId(id); return p ? p.nick : '?'; };
+      $('#bookCount').textContent = bookings.length <= SLOTS
+        ? `· ${bookings.length}/${SLOTS}`
+        : `· ${SLOTS}/${SLOTS} + ${bookings.length - SLOTS} in attesa`;
+
+      // riquadro "io": o la mia prenotazione, o il menù per farla
+      const mine = bookings.find(b => b.device === deviceId), me = $('#bookMe');
+      if (mine) {
+        const pos = bookings.indexOf(mine) + 1;
+        me.innerHTML = `<div class="row"><span class="badge">✅ Sei in lista come <b>${esc(nick(mine.player_id))}</b>${pos > SLOTS ? ` · riserva n° ${pos - SLOTS}` : ''}</span>
+          <button class="ghost" id="btnUnbook">Cancella la mia prenotazione</button></div>`;
+        $('#btnUnbook').onclick = () => action('unbook_player', { p_player_id: mine.player_id, p_device: deviceId }, 'Prenotazione cancellata');
+      } else {
+        const free = activePlayers().filter(p => !bookings.some(b => b.player_id === p.id))
+          .sort((a, b) => a.nick.localeCompare(b.nick, 'it', { sensitivity: 'base' }));
+        me.innerHTML = free.length
+          ? `<div class="row"><select id="bookWho" class="grow"><option value="">Chi sei? Scegli il tuo nome…</option>${free.map(p => `<option value="${p.id}">${esc(p.nick)}${(p.nome + ' ' + p.cognome).trim() ? ' · ' + esc((p.nome + ' ' + p.cognome).trim()) : ''}</option>`).join('')}</select>
+             <button class="primary" id="btnBook">${bookings.length >= SLOTS ? 'Mettiti in lista d\'attesa' : 'Prenota'}</button></div>
+             <div class="muted" style="margin-top:6px">Da ogni telefono si può prenotare una persona sola. Per cambiare, cancella e rifai.</div>`
+          : '<div class="muted">Tutti i giocatori sono già in lista.</div>';
+        const b = $('#btnBook');
+        if (b) b.onclick = () => {
+          const id = +$('#bookWho').value; if (!id) { toast('Scegli il tuo nome'); return; }
+          action('book_player', { p_player_id: id, p_device: deviceId }, 'Sei in lista!');
+        };
+      }
+
+      // lista in ordine di arrivo: i primi 16 giocano, gli altri sono riserve
+      const fmtAt = t => { const d = new Date(t); return isNaN(d) ? '' : d.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit' }) + ' ' + d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }); };
+      const rowHtml = (b, i) => `<div class="bk${b.device === deviceId ? ' me' : ''}"><span class="nn">${i + 1 > SLOTS ? 'R' + (i + 1 - SLOTS) : i + 1}</span>
+        <span class="who">${esc(nick(b.player_id))}</span><span class="at">${fmtAt(b.at)}</span>
+        <button class="x admin-only" data-unbook="${b.player_id}" title="Togli dalla lista">×</button></div>`;
+      const list = $('#bookList');
+      list.innerHTML = bookings.length
+        ? bookings.slice(0, SLOTS).map(rowHtml).join('')
+          + (bookings.length > SLOTS ? '<div class="bk-sep">Riserve</div>' + bookings.slice(SLOTS).map((b, i) => rowHtml(b, i + SLOTS)).join('') : '')
+        : '<div class="muted">Nessuno si è ancora prenotato.</div>';
+      list.querySelectorAll('[data-unbook]').forEach(b => b.onclick = () => action('unbook_player', { p_player_id: +b.dataset.unbook, p_device: deviceId }, 'Prenotazione rimossa'));
+    }
+    $('#btnBookClear').onclick = () => { if (bookings.length && confirm('Svuotare tutta la lista delle prenotazioni?')) action('clear_bookings', {}, 'Lista svuotata'); };
+
     function renderDashboard() {
-      renderNext(); fillFieldList();
+      renderNext(); renderBookings(); fillFieldList();
       const stats = computeStats();
       const rows = activePlayers().map(p => ({ p, s: stats[p.id] })).sort((a, b) => b.s.rating - a.s.rating || b.s.ppg - a.s.ppg || b.s.pts - a.s.pts || a.p.nick.localeCompare(b.p.nick));
       $('#standings tbody').innerHTML = rows.map((r, i) => `<tr><td>${i + 1}</td><td><b>${esc(r.p.nick)}</b></td><td class="num">${r.s.pg}</td><td class="num">${r.s.v}</td><td class="num">${r.s.n}</td><td class="num">${r.s.p}</td><td class="num">${r.s.pts}</td><td class="num">${r.s.pg ? r.s.ppg.toFixed(2) : '–'}</td><td class="num"><b>${r.s.rating.toFixed(2)}</b></td></tr>`).join('')
