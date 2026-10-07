@@ -666,6 +666,10 @@
       <label>Nome <input id="rNome" autocomplete="given-name"></label>
       <label>Cognome <input id="rCognome" autocomplete="family-name"></label>
       <label>Nickname <input id="rNick" autocomplete="off"></label>
+      <label>PIN di 4 cifre <input id="rPin" inputmode="numeric" maxlength="4" autocomplete="off"
+          placeholder="es. 1234"></label>
+      <div class="muted" style="margin:-4px 0 6px">Ti servirà per prenotarti alle partite e per cancellarti, anche da un
+        altro telefono. Scegline uno che ricordi.</div>
       <label>Ruolo preferito (1ª scelta) <select id="rR1"></select></label>
       <label>2ª scelta <select id="rR2"></select></label>
       <label>3ª scelta <select id="rR3"></select></label>
@@ -867,6 +871,11 @@
     let matches = [];   // [{id, date, time, field, golA, golB, played, A:[{id,role}], B:[{id,role}]}]
     let bookings = [];  // prenotazioni alla prossima partita, in ordine di arrivo: [{player_id, device, at}]
     // Codice casuale del dispositivo: il server lo usa per dare UNA prenotazione per browser
+    // Identità del giocatore su questo browser: {nick, pin}. Il PIN viaggia cifrato via HTTPS
+    // e sul server è salvato solo come hash; qui resta per non doverlo ridigitare ogni volta.
+    let me = null; try { me = JSON.parse(localStorage.getItem('calcio8_me')) || null; } catch (e) { }
+    const saveMe = () => me ? localStorage.setItem('calcio8_me', JSON.stringify(me)) : localStorage.removeItem('calcio8_me');
+    const myPlayer = () => me && activePlayers().find(p => p.nick.toLowerCase() === me.nick.toLowerCase());
     let deviceId = localStorage.getItem('calcio8_device');
     if (!deviceId) { deviceId = 'd' + Math.random().toString(36).slice(2) + Date.now().toString(36); localStorage.setItem('calcio8_device', deviceId); }
     // Sessione: password e ruolo ('visitor' | 'admin') restano finché la scheda è aperta
@@ -1107,7 +1116,9 @@
       const nome = $('#rNome').value.trim(), cognome = $('#rCognome').value.trim(), nick = $('#rNick').value.trim();
       const roles = [$('#rR1').value, $('#rR2').value, $('#rR3').value];
       const msg = t => $('#regMsg').textContent = t;
+      const pin = $('#rPin').value.trim();
       if (!nome || !cognome || !nick) { msg('Compila nome, cognome e nickname'); return; }
+      if (!/^[0-9]{4}$/.test(pin)) { msg('Il PIN deve essere di 4 cifre'); return; }
       if (roles.some(r => !r)) { msg('Scegli tutti e tre i ruoli preferiti'); return; }
       if (new Set(roles).size !== 3) { msg('I tre ruoli devono essere diversi'); return; }
       const btn = $('#regSave'); btn.disabled = true; msg('Salvataggio…');
@@ -1116,7 +1127,12 @@
         if (!res) throw new Error('risposta vuota dal server');
         if (res.error === 'nick_exists') { msg('Nickname già esistente, scegline un altro'); return; }
         if (res.error) throw new Error(res.error);
-        $('#rNome').value = $('#rCognome').value = $('#rNick').value = '';
+        // il PIN si imposta subito dopo la creazione (vale solo sui giocatori appena registrati)
+        try {
+          const rp = await sb('/rest/v1/rpc/register_set_pin', { method: 'POST', body: JSON.stringify({ p_nick: nick, p_pin: pin }) });
+          if (rp && rp.ok) { me = { nick, pin }; saveMe(); }
+        } catch (e) { console.error(e); }
+        $('#rNome').value = $('#rCognome').value = $('#rNick').value = $('#rPin').value = '';
         for (const id of ['#rR1', '#rR2', '#rR3']) $(id).value = ROLES[0];
         msg('');
         // la password visitatore la restituisce il server (letta dal database); CONFIG.VISITOR_PWD è solo un ripiego
@@ -1156,15 +1172,18 @@
         const sel = selected.includes(p.id);
         const el = document.createElement('label'); el.className = 'pl' + (sel ? ' sel' : '');
         el.innerHTML = `<input type="checkbox" ${sel ? 'checked' : ''} ${isAdmin() ? '' : 'disabled'}>
-      <div><div class="nick">${esc(p.nick)}</div><div class="roles">${esc((p.nome + ' ' + p.cognome).trim())} · ${p.roles.join(' / ')}</div></div>
+      <div><div class="nick">${esc(p.nick)}${p.has_pin ? '' : ' <span class="muted" title="Non ha ancora impostato il PIN">🔓</span>'}</div><div class="roles">${esc((p.nome + ' ' + p.cognome).trim())} · ${p.roles.join(' / ')}</div></div>
       <div class="pts" title="Rating (media punti/partita)">${stats[p.id].rating.toFixed(2)}</div>
+      ${p.has_pin ? '<button class="del admin-only" data-pin title="Azzera il PIN">🔑</button>' : ''}
       <button class="del admin-only" title="Elimina">×</button>`;
         el.querySelector('input').onchange = e => {
           if (e.target.checked) { if (selected.length >= 16) { e.target.checked = false; toast('Hai già selezionato 16 giocatori'); return; } selected.push(p.id); }
           else selected = selected.filter(x => x !== p.id);
           saveSel(); renderPlayers();
         };
-        el.querySelector('.del').onclick = e => { e.preventDefault(); deletePlayer(p); };
+        const rp = el.querySelector('[data-pin]');
+        if (rp) rp.onclick = e => { e.preventDefault(); if (confirm(`Azzerare il PIN di ${p.nick}? Al prossimo accesso ne sceglierà uno nuovo.`)) action('reset_pin', { p_player_id: p.id }, 'PIN azzerato'); };
+        el.querySelectorAll('.del:not([data-pin])')[0].onclick = e => { e.preventDefault(); deletePlayer(p); };
         list.appendChild(el);
       }
       $('#selCount').textContent = selected.length;
@@ -1310,31 +1329,36 @@
         ? `· ${bookings.length}/${SLOTS}`
         : `· ${SLOTS}/${SLOTS} + ${bookings.length - SLOTS} in attesa`;
 
-      // riquadro "io": o la mia prenotazione, o il menù per farla
-      const mine = bookings.find(b => b.device === deviceId), me = $('#bookMe');
-      if (mine) {
-        const pos = bookings.indexOf(mine) + 1;
-        me.innerHTML = `<div class="row"><span class="badge">✅ Sei in lista come <b>${esc(nick(mine.player_id))}</b>${pos > SLOTS ? ` · riserva n° ${pos - SLOTS}` : ''}</span>
-          <button class="ghost" id="btnUnbook">Cancella la mia prenotazione</button></div>`;
-        $('#btnUnbook').onclick = () => action('unbook_player', { p_player_id: mine.player_id, p_device: deviceId }, 'Prenotazione cancellata');
-      } else {
-        const free = activePlayers().filter(p => !bookings.some(b => b.player_id === p.id))
-          .sort((a, b) => a.nick.localeCompare(b.nick, 'it', { sensitivity: 'base' }));
-        me.innerHTML = free.length
-          ? `<div class="row"><select id="bookWho" class="grow"><option value="">Chi sei? Scegli il tuo nome…</option>${free.map(p => `<option value="${p.id}">${esc(p.nick)}${(p.nome + ' ' + p.cognome).trim() ? ' · ' + esc((p.nome + ' ' + p.cognome).trim()) : ''}</option>`).join('')}</select>
-             <button class="primary" id="btnBook">${bookings.length >= SLOTS ? 'Mettiti in lista d\'attesa' : 'Prenota'}</button></div>
-             <div class="muted" style="margin-top:6px">Da ogni telefono si può prenotare una persona sola. Per cambiare, cancella e rifai.</div>`
-          : '<div class="muted">Tutti i giocatori sono già in lista.</div>';
-        const b = $('#btnBook');
-        if (b) b.onclick = () => {
-          const id = +$('#bookWho').value; if (!id) { toast('Scegli il tuo nome'); return; }
-          action('book_player', { p_player_id: id, p_device: deviceId }, 'Sei in lista!');
+      // riquadro "io": chi sono su questo browser, e il pulsante per entrare/uscire dalla lista
+      const mp = myPlayer(), box = $('#bookMe');
+      if (!mp) {
+        const free = activePlayers().sort((a, b) => a.nick.localeCompare(b.nick, 'it', { sensitivity: 'base' }));
+        box.innerHTML = `<div class="row"><select id="meWho" class="grow"><option value="">Chi sei? Scegli il tuo nome…</option>${free.map(p => `<option value="${esc(p.nick)}" data-new="${p.has_pin ? '' : '1'}">${esc(p.nick)}${(p.nome + ' ' + p.cognome).trim() ? ' · ' + esc((p.nome + ' ' + p.cognome).trim()) : ''}</option>`).join('')}</select>
+          <input id="mePin" inputmode="numeric" maxlength="4" placeholder="PIN" style="width:80px" autocomplete="off">
+          <button class="primary" id="btnMeIn">Accedi</button></div>
+          <div class="muted" id="meHint" style="margin-top:6px">Il PIN serve a prenotarti e a cancellarti da qualsiasi telefono. Se non l'hai mai usato, scegline uno adesso.</div>`;
+        $('#meWho').onchange = e => {
+          const o = e.target.selectedOptions[0];
+          $('#meHint').textContent = !o || !o.value ? "Il PIN serve a prenotarti e a cancellarti da qualsiasi telefono. Se non l'hai mai usato, scegline uno adesso."
+            : o.dataset.new ? 'Prima volta: scegli tu il PIN di 4 cifre, resterà il tuo.' : 'Inserisci il tuo PIN di 4 cifre.';
         };
+        $('#btnMeIn').onclick = playerLogin;
+        $('#mePin').onkeydown = e => { if (e.key === 'Enter') playerLogin(); };
+      } else {
+        const b = bookings.find(x => x.player_id === mp.id), pos = b ? bookings.indexOf(b) + 1 : 0;
+        box.innerHTML = `<div class="row"><span class="badge">👤 Ciao <b>${esc(mp.nick)}</b></span>
+          ${b ? `<span class="badge">✅ In lista${pos > SLOTS ? ` · riserva n° ${pos - SLOTS}` : ''}</span><button class="ghost" id="btnMeBook">Cancella la mia prenotazione</button>`
+              : `<button class="primary" id="btnMeBook">${bookings.length >= SLOTS ? "Mettiti in lista d'attesa" : 'Prenotami'}</button>`}
+          <div class="grow"></div><button class="ghost" id="btnMeOut">Non sei tu?</button></div>`;
+        $('#btnMeBook').onclick = () => b
+          ? action('unbook_player', { p_player_id: mp.id, p_pin: me.pin }, 'Prenotazione cancellata')
+          : action('book_player', { p_player_id: mp.id, p_pin: me.pin, p_device: deviceId }, 'Sei in lista!');
+        $('#btnMeOut').onclick = () => { me = null; saveMe(); renderBookings(); };
       }
 
       // lista in ordine di arrivo: i primi 16 giocano, gli altri sono riserve
       const fmtAt = t => { const d = new Date(t); return isNaN(d) ? '' : d.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit' }) + ' ' + d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }); };
-      const rowHtml = (b, i) => `<div class="bk${b.device === deviceId ? ' me' : ''}"><span class="nn">${i + 1 > SLOTS ? 'R' + (i + 1 - SLOTS) : i + 1}</span>
+      const rowHtml = (b, i) => `<div class="bk${mp && b.player_id === mp.id ? ' me' : ''}"><span class="nn">${i + 1 > SLOTS ? 'R' + (i + 1 - SLOTS) : i + 1}</span>
         <span class="who">${esc(nick(b.player_id))}</span><span class="at">${fmtAt(b.at)}</span>
         <button class="x admin-only" data-unbook="${b.player_id}" title="Togli dalla lista">×</button></div>`;
       const list = $('#bookList');
@@ -1342,7 +1366,22 @@
         ? bookings.slice(0, SLOTS).map(rowHtml).join('')
           + (bookings.length > SLOTS ? '<div class="bk-sep">Riserve</div>' + bookings.slice(SLOTS).map((b, i) => rowHtml(b, i + SLOTS)).join('') : '')
         : '<div class="muted">Nessuno si è ancora prenotato.</div>';
-      list.querySelectorAll('[data-unbook]').forEach(b => b.onclick = () => action('unbook_player', { p_player_id: +b.dataset.unbook, p_device: deviceId }, 'Prenotazione rimossa'));
+      list.querySelectorAll('[data-unbook]').forEach(b => b.onclick = () => action('unbook_player', { p_player_id: +b.dataset.unbook, p_pin: null }, 'Prenotazione rimossa'));
+    }
+    async function playerLogin() {
+      const nick = $('#meWho').value, pin = $('#mePin').value.trim();
+      if (!nick) { toast('Scegli il tuo nome'); return; }
+      if (!/^[0-9]{4}$/.test(pin)) { toast('Il PIN deve essere di 4 cifre'); return; }
+      const p = activePlayers().find(x => x.nick === nick); if (!p) return;
+      setSync('verifica PIN…');
+      try {
+        const res = await rpc('player_login', { p_player_id: p.id, p_pin: pin });
+        me = { nick: p.nick, pin }; saveMe();
+        await reload(); toast(res.claimed ? 'PIN impostato: da ora è il tuo' : 'Ciao ' + p.nick + '!');
+      } catch (e) {
+        if (e.auth) { toast('Sessione non valida, accedi di nuovo'); logout(); return; }
+        setSync('sincronizzato'); toast(e.message);
+      }
     }
     $('#btnBookClear').onclick = () => { if (bookings.length && confirm('Svuotare tutta la lista delle prenotazioni?')) action('clear_bookings', {}, 'Lista svuotata'); };
 
