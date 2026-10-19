@@ -865,6 +865,8 @@
       // Password visitatore mostrata a fine registrazione: normalmente la legge il server
       // (register_player la restituisce). Riempi questa solo per forzare un valore fisso.
       VISITOR_PWD: '',
+      TELEGRAM_BOT_TOKEN: '8405541803:AAGhvpxeoLfOQyPSaFus0eHeDKcOYsGwMPE',
+      TELEGRAM_CHAT_ID: '936995180',
     };
 
     const SLOTS = 16;   // posti in campo; dal 17° in poi si è riserva
@@ -951,6 +953,62 @@
         setSync('errore'); toast('Errore: ' + e.message); return false;
       }
       await reload(); if (okMsg) toast(okMsg); return true;
+    }
+
+    async function notifyTelegram(htmlMsg) {
+      if (!CONFIG.TELEGRAM_BOT_TOKEN || !CONFIG.TELEGRAM_CHAT_ID) return;
+      try {
+        await fetch(`https://api.telegram.org/bot${CONFIG.TELEGRAM_BOT_TOKEN}/sendMessage`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chat_id: CONFIG.TELEGRAM_CHAT_ID,
+            text: htmlMsg,
+            parse_mode: 'HTML'
+          })
+        });
+      } catch (e) {
+        console.error('Errore invio notifica Telegram:', e);
+      }
+    }
+
+    async function unbookWithNotification(playerId, pin = null) {
+      const idx = bookings.findIndex(b => b.player_id === playerId);
+      const wasTitular = idx !== -1 && idx < SLOTS;
+      const unbookedPlayer = byId(playerId);
+      const unbookedNick = unbookedPlayer ? unbookedPlayer.nick : 'Un giocatore';
+
+      const nextReserve = (wasTitular && bookings.length > SLOTS) ? byId(bookings[SLOTS].player_id) : null;
+      const reservesLeft = wasTitular && bookings.length > SLOTS ? (bookings.length - 1 - SLOTS) : 0;
+      const totalRemaining = bookings.length - 1;
+      const missingSpots = SLOTS - totalRemaining;
+      const matchInfo = nextMatch();
+
+      const ok = await action('unbook_player', { p_player_id: playerId, p_pin: pin }, pin ? 'Prenotazione cancellata' : 'Prenotazione rimossa');
+      if (!ok) return;
+
+      // Invia notifica Telegram SOLO se era titolare (non per le riserve)
+      if (wasTitular) {
+        let msg = `⚠️ <b>Disdetta prenotazione</b>`;
+        if (matchInfo && matchInfo.date) {
+          msg += ` per la partita del <b>${fmtDate(matchInfo.date)}</b>`;
+        }
+        msg += `\n\n❌ <b>${esc(unbookedNick)}</b> si è disiscritto!`;
+
+        if (nextReserve) {
+          msg += `\n\n🔄 Subentra dalla lista riserve: <b>${esc(nextReserve.nick)}</b>`;
+          if (reservesLeft > 0) {
+            msg += `\n📋 Riserve ancora disponibili: <b>${reservesLeft}</b>`;
+          } else {
+            msg += `\n📋 Non ci sono altre riserve in lista d'attesa.`;
+          }
+        } else {
+          msg += `\n\n🚨 <b>Nessuna riserva disponibile: siamo rimasti scoperti!</b>`;
+          msg += `\n👥 Presenti: <b>${totalRemaining}/${SLOTS}</b> (mancano <b>${missingSpots}</b> ${missingSpots === 1 ? 'giocatore' : 'giocatori'})`;
+        }
+
+        notifyTelegram(msg);
+      }
     }
     function setSync(t) { $('#syncStatus').textContent = '☁ ' + t; if (document.body.classList.contains('gated')) $('#gateMsg').textContent = t; }
 
@@ -1360,7 +1418,7 @@
               : `<button class="primary" id="btnMeBook">${bookings.length >= SLOTS ? "Mettiti in lista d'attesa" : 'Prenotami'}</button>`}
           <div class="grow"></div><button class="ghost" id="btnMeOut">Non sei tu?</button></div>`;
         $('#btnMeBook').onclick = () => b
-          ? action('unbook_player', { p_player_id: mp.id, p_pin: me.pin }, 'Prenotazione cancellata')
+          ? unbookWithNotification(mp.id, me.pin)
           : action('book_player', { p_player_id: mp.id, p_pin: me.pin, p_device: deviceId }, 'Sei in lista!');
         $('#btnMeOut').onclick = () => { me = null; saveMe(); renderBookings(); };
       }
@@ -1394,7 +1452,7 @@
         ? bookings.slice(0, SLOTS).map(rowHtml).join('')
           + (bookings.length > SLOTS ? '<div class="bk-sep">Riserve</div>' + bookings.slice(SLOTS).map((b, i) => rowHtml(b, i + SLOTS)).join('') : '')
         : '<div class="muted">Nessuno si è ancora prenotato.</div>';
-      list.querySelectorAll('[data-unbook]').forEach(b => b.onclick = () => action('unbook_player', { p_player_id: +b.dataset.unbook, p_pin: null }, 'Prenotazione rimossa'));
+      list.querySelectorAll('[data-unbook]').forEach(b => b.onclick = () => unbookWithNotification(+b.dataset.unbook, null));
     }
     async function playerLogin() {
       const nick = $('#meWho').value, pin = $('#mePin').value.trim();
