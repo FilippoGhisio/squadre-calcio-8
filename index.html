@@ -731,6 +731,7 @@
           <button class="ghost" id="btnNextClear">Rimuovi</button>
           <button class="primary" id="btnNextSave">Salva</button>
         </div>
+        <div class="muted" id="nxHint" style="margin-top:6px"></div>
       </div>
       <div class="card">
         <b>Classifica giocatori</b>
@@ -908,7 +909,11 @@
           throw new Error('server non raggiungibile, controlla la connessione');
         }
         if (r.status >= 500 && i < TRIES) { setSync(`server non disponibile, riprovo (${i}/${TRIES - 1})…`); await sleep(800 * i); continue; }
-        if (!r.ok) throw new Error('HTTP ' + r.status + ' ' + (await r.text()));
+        if (!r.ok) {
+          // gli errori sollevati dal database (es. "Le prenotazioni aprono…") arrivano come {message}
+          const t = await r.text(); let m = ''; try { m = JSON.parse(t).message; } catch (e) { }
+          throw new Error(m || 'HTTP ' + r.status + ' ' + t);
+        }
         return r.status === 204 ? null : r.json();
       }
     }
@@ -1318,7 +1323,13 @@
         <div class="meta"><div><b>Ora</b>${n.time ? esc(n.time) : '–'}</div><div><b>Campo</b>${n.field ? esc(n.field) : '–'}</div>${teams}</div>`;
         const g = $('#goTeams'); if (g) g.onclick = e => { e.preventDefault(); showTab('squadre'); };
       }
-      if (isAdmin()) { $('#nxDate').value = n ? n.date : ''; $('#nxTime').value = n ? n.time : ''; $('#nxField').value = n ? n.field : ''; }
+      if (isAdmin()) {
+        $('#nxDate').value = n ? n.date : ''; $('#nxTime').value = n ? n.time : ''; $('#nxField').value = n ? n.field : '';
+        const o = n && bookingOpensAt(n.date);
+        $('#nxHint').textContent = !o ? 'Le prenotazioni dei giocatori aprono il venerdì prima della partita alle 13:00 (ora italiana).'
+          : o > new Date() ? `Le prenotazioni dei giocatori apriranno ${fmtOpens(o)}. Tu puoi già aggiungere giocatori alla lista.`
+            : 'Le prenotazioni dei giocatori sono aperte.';
+      }
     }
     $('#btnNextSave').onclick = () => {
       const date = $('#nxDate').value; if (!date) { toast('Inserisci la data'); return; }
@@ -1329,10 +1340,33 @@
       if (confirm('Rimuovere la prossima partita' + (n.A.length ? ' e le sue squadre' : '') + '?')) action('delete_next_match', {}, 'Prossima partita rimossa');
     };
 
+    /* Apertura prenotazioni: il venerdì prima della partita alle 13:00 ora italiana
+       (stessa regola della funzione booking_opens_at sul server) */
+    const OPEN_DOW = 5, OPEN_HOUR = 13;   // 5 = venerdì
+    let openTimer = null;
+    function bookingOpensAt(date) {
+      const d = new Date(date + 'T12:00:00Z');
+      d.setUTCDate(d.getUTCDate() - (d.getUTCDay() - OPEN_DOW + 7) % 7);
+      return romeTime(d.toISOString().slice(0, 10), OPEN_HOUR);
+    }
+    // istante corrispondente a "giorno alle hh:00" in Italia, qualunque sia il fuso del telefono
+    function romeTime(day, hh) {
+      const guess = new Date(`${day}T${String(hh).padStart(2, '0')}:00:00Z`);
+      const p = Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone: 'Europe/Rome', hourCycle: 'h23', year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric' })
+        .formatToParts(guess).map(x => [x.type, +x.value]));
+      const offset = Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute) - guess;
+      return new Date(guess - offset);
+    }
+    function fmtOpens(d) { return d.toLocaleDateString('it-IT', { timeZone: 'Europe/Rome', weekday: 'long', day: 'numeric', month: 'long' }) + ' alle ' + d.toLocaleTimeString('it-IT', { timeZone: 'Europe/Rome', hour: '2-digit', minute: '2-digit' }); }
+
     function renderBookings() {
       const n = nextMatch(), card = $('#bookCard');
-      card.style.display = n ? '' : 'none'; if (!n) return;
+      card.style.display = n ? '' : 'none'; clearTimeout(openTimer); if (!n) return;
       const nick = id => { const p = byId(id); return p ? p.nick : '?'; };
+      // prima dell'apertura i giocatori non possono prenotarsi (il server lo impone comunque);
+      // allo scoccare dell'ora il riquadro si aggiorna da solo e compare "Prenotami"
+      const opens = bookingOpensAt(n.date), wait = opens - new Date(), open = wait <= 0;
+      if (!open && wait < 2 ** 31 - 1) openTimer = setTimeout(renderBookings, wait + 1000);
       $('#bookCount').textContent = bookings.length <= SLOTS
         ? `· ${bookings.length}/${SLOTS}`
         : `· ${SLOTS}/${SLOTS} + ${bookings.length - SLOTS} in attesa`;
@@ -1357,9 +1391,10 @@
         const b = bookings.find(x => x.player_id === mp.id), pos = b ? bookings.indexOf(b) + 1 : 0;
         box.innerHTML = `<div class="row"><span class="badge">👤 Ciao <b>${esc(mp.nick)}</b></span>
           ${b ? `<span class="badge">✅ In lista${pos > SLOTS ? ` · riserva n° ${pos - SLOTS}` : ''}</span><button class="ghost" id="btnMeBook">Cancella la mia prenotazione</button>`
+              : !open ? `<span class="badge">🔒 Le prenotazioni aprono ${fmtOpens(opens)}</span>`
               : `<button class="primary" id="btnMeBook">${bookings.length >= SLOTS ? "Mettiti in lista d'attesa" : 'Prenotami'}</button>`}
           <div class="grow"></div><button class="ghost" id="btnMeOut">Non sei tu?</button></div>`;
-        $('#btnMeBook').onclick = () => b
+        if ($('#btnMeBook')) $('#btnMeBook').onclick = () => b
           ? action('unbook_player', { p_player_id: mp.id, p_pin: me.pin }, 'Prenotazione cancellata')
           : action('book_player', { p_player_id: mp.id, p_pin: me.pin, p_device: deviceId }, 'Sei in lista!');
         $('#btnMeOut').onclick = () => { me = null; saveMe(); renderBookings(); };
@@ -1393,7 +1428,7 @@
       list.innerHTML = bookings.length
         ? bookings.slice(0, SLOTS).map(rowHtml).join('')
           + (bookings.length > SLOTS ? '<div class="bk-sep">Riserve</div>' + bookings.slice(SLOTS).map((b, i) => rowHtml(b, i + SLOTS)).join('') : '')
-        : '<div class="muted">Nessuno si è ancora prenotato.</div>';
+        : `<div class="muted">${open ? 'Nessuno si è ancora prenotato.' : `Le prenotazioni aprono ${fmtOpens(opens)}.`}</div>`;
       list.querySelectorAll('[data-unbook]').forEach(b => b.onclick = () => action('unbook_player', { p_player_id: +b.dataset.unbook, p_pin: null }, 'Prenotazione rimossa'));
     }
     async function playerLogin() {
